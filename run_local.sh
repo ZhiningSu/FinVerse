@@ -1,0 +1,17 @@
+PYTHONPATH=src:$PYTHONPATH python train.py \
+  --data-root data/processed \
+  --output-dir outputs \
+  --latent-dim 128 \
+  --hidden-dim 256 \
+  --kl-weight 0.1 \
+  --lr 3e-4 \
+  --batch-size 32 \
+  --num-epochs 30 \
+  --device cpu \
+  --log-interval 5 \
+  --save-interval 5 \
+  --num-workers 0 \
+  --max-train-episodes 1000 \
+  --max-val-episodes 200 \
+  --price-stats data/processed/artifacts/preprocessing/price_norm_stats.json \
+  --macro-stats data/processed/artifacts/preprocessing/macro_norm_stats.json

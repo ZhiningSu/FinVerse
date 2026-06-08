@@ -5,6 +5,7 @@ hidden_dim: 256
 kl_weight: 0.1
 recon_weight: 1.0
 regime_weight: 0.05
+vq_weight: 0.05
 lr: 3e-4
 weight_decay: 1e-4
 batch_size: 32

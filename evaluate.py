@@ -38,7 +38,7 @@ def load_model(checkpoint_path: str, model_name: str, device: torch.device, hidd
     extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": 66}
 
     if model_name == "price_only":
-        model = model_cls(price_dim=6, hidden_dim=hidden_dim, output_dim=6, num_steps=10).to(device)
+        model = model_cls(price_dim=6, hidden_dim=hidden_dim, output_dim=6, num_steps=30).to(device)
     else:
         model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, **extra).to(device)
 
@@ -61,26 +61,32 @@ def predict_at_horizon(model, price_seq, news_feat, macro_feat, edge_index, edge
         out = model(price_seq)
         pred = out["price_pred"]
         if pred.dim() == 3:
-            return pred[:, horizon - 1, :]
+            pred = pred[:, horizon - 1, :]
         return pred
 
     elif model_name == "MultiModalNoRollout":
         out = model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action)
-        return out["price_pred"]
+        pred = out["price_pred"]
+        if pred.dim() == 2:
+            return pred[:, horizon - 1]
+        return pred[:, horizon - 1, :] if horizon <= pred.size(1) else pred[:, -1, :]
 
     else:
         out = model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action)
         pred = out["price_pred"]
-        if pred.dim() == 2 and horizon > 1:
+        if pred.dim() == 2:
             return pred[:, horizon - 1]
-        return pred[:, horizon - 1, :] if pred.dim() == 3 else pred
+        elif pred.dim() == 3:
+            h_idx = horizon - 1
+            return pred[:, h_idx, :] if h_idx < pred.size(1) else pred[:, -1, :]
+        return pred
 
 
 @torch.no_grad()
 def evaluate_model(model, dataloader, model_name: str):
     model.eval()
-    mse_1, mse_5, mse_10 = [], [], []
-    mae_1, mae_5, mae_10 = [], [], []
+    mse_1, mse_5, mse_10, mse_20, mse_30 = [], [], [], [], []
+    mae_1, mae_5, mae_10, mae_20, mae_30 = [], [], [], [], []
 
     for batch in tqdm(dataloader, desc=f"Eval {model_name}"):
         batch = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
@@ -92,28 +98,43 @@ def evaluate_model(model, dataloader, model_name: str):
         price_target = batch["price_target"]
         action = batch["action"]
 
-        for h in [1, 5, 10]:
+        for h in [1, 5, 10, 20, 30]:
             pred = predict_at_horizon(model, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, h)
             target_h = price_target[:, h - 1, :] if price_target.dim() == 3 else price_target
-            mse_h = F.mse_loss(pred, target_h, reduction="none").mean(dim=list(range(1, pred.dim()))).tolist()
-            mae_h = F.l1_loss(pred, target_h, reduction="none").mean(dim=list(range(1, pred.dim()))).tolist()
-            if h == 1:
-                mse_1.extend(mse_h)
-                mae_1.extend(mae_h)
-            elif h == 5:
-                mse_5.extend(mse_h)
-                mae_5.extend(mae_h)
+            if pred.dim() == 1:
+                pred = pred.unsqueeze(-1)
+            if target_h.dim() == 1:
+                target_h = target_h.unsqueeze(-1)
+            pred = pred.reshape(pred.size(0), -1)
+            target_h = target_h.reshape(target_h.size(0), -1)
+            if pred.size(1) > target_h.size(1):
+                pred = pred[:, :target_h.size(1)]
             else:
-                mse_10.extend(mse_h)
-                mae_10.extend(mae_h)
+                target_h = target_h[:, :pred.size(1)]
+            mse_h = F.mse_loss(pred, target_h, reduction="none").mean(dim=1).tolist()
+            mae_h = F.l1_loss(pred, target_h, reduction="none").mean(dim=1).tolist()
+            if h == 1:
+                mse_1.extend(mse_h); mae_1.extend(mae_h)
+            elif h == 5:
+                mse_5.extend(mse_h); mae_5.extend(mae_h)
+            elif h == 10:
+                mse_10.extend(mse_h); mae_10.extend(mae_h)
+            elif h == 20:
+                mse_20.extend(mse_h); mae_20.extend(mae_h)
+            else:
+                mse_30.extend(mse_h); mae_30.extend(mae_h)
 
     return {
         "MSE@1": float(np.mean(mse_1)),
         "MSE@5": float(np.mean(mse_5)),
         "MSE@10": float(np.mean(mse_10)),
+        "MSE@20": float(np.mean(mse_20)),
+        "MSE@30": float(np.mean(mse_30)),
         "MAE@1": float(np.mean(mae_1)),
         "MAE@5": float(np.mean(mae_5)),
         "MAE@10": float(np.mean(mae_10)),
+        "MAE@20": float(np.mean(mae_20)),
+        "MAE@30": float(np.mean(mae_30)),
         "n_samples": len(mse_1),
     }
 

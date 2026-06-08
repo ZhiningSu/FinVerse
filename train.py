@@ -35,6 +35,7 @@ DEFAULT_CONFIG = {
     "kl_weight": 0.1,
     "recon_weight": 1.0,
     "regime_weight": 0.05,
+    "vq_weight": 0.05,
     "lr": 3e-4,
     "weight_decay": 1e-4,
     "batch_size": 32,
@@ -59,6 +60,7 @@ def build_parser():
     parser.add_argument("--kl-weight", type=float, default=DEFAULT_CONFIG["kl_weight"])
     parser.add_argument("--recon-weight", type=float, default=DEFAULT_CONFIG["recon_weight"])
     parser.add_argument("--regime-weight", type=float, default=DEFAULT_CONFIG["regime_weight"])
+    parser.add_argument("--vq-weight", type=float, default=DEFAULT_CONFIG["vq_weight"])
     parser.add_argument("--lr", type=float, default=DEFAULT_CONFIG["lr"])
     parser.add_argument("--weight-decay", type=float, default=DEFAULT_CONFIG["weight_decay"])
     parser.add_argument("--batch-size", type=int, default=DEFAULT_CONFIG["batch_size"])
@@ -72,6 +74,7 @@ def build_parser():
     parser.add_argument("--max-val-episodes", type=int, default=None)
     parser.add_argument("--device", default=DEFAULT_CONFIG["device"])
     parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--no-save", action="store_true", help="Run training without writing checkpoints.")
     parser.add_argument("--price-stats", type=str, default=None)
     parser.add_argument("--macro-stats", type=str, default=None)
     parser.add_argument("--model", type=str, default="full",
@@ -91,16 +94,26 @@ def build_model(model_name: str, args, device):
     extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": 66}
     if model_name == "full":
         model = WorldModel(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
-        criterion = WorldModelLoss(kl_weight=args.kl_weight, recon_weight=args.recon_weight, regime_weight=args.regime_weight)
+        criterion = WorldModelLoss(
+            kl_weight=args.kl_weight,
+            recon_weight=args.recon_weight,
+            regime_weight=args.regime_weight,
+            vq_weight=args.vq_weight,
+        )
     elif model_name == "price_only":
-        model = PriceOnlyGRU(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=10).to(device)
+        model = PriceOnlyGRU(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
         criterion = BaselineLoss()
     elif model_name == "multi_noroll":
         model = MultiModalNoRollout(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
         criterion = BaselineLoss()
     elif model_name == "no_graph":
         model = NoGraphWorldModel(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
-        criterion = WorldModelLoss(kl_weight=args.kl_weight, recon_weight=args.recon_weight, regime_weight=args.regime_weight)
+        criterion = WorldModelLoss(
+            kl_weight=args.kl_weight,
+            recon_weight=args.recon_weight,
+            regime_weight=args.regime_weight,
+            vq_weight=args.vq_weight,
+        )
     return model, criterion
 
 
@@ -169,7 +182,7 @@ def main():
         if is_best:
             trainer.best_val_loss = val_loss
 
-        if epoch % args.save_interval == 0 or is_best:
+        if not args.no_save and (epoch % args.save_interval == 0 or is_best):
             trainer.save_checkpoint(epoch, is_best=is_best)
 
         LOGGER.info(
@@ -180,7 +193,10 @@ def main():
             trainer.best_val_loss,
         )
 
-    LOGGER.info("Training complete. Checkpoints saved to %s", output_dir)
+    if args.no_save:
+        LOGGER.info("Training complete. Checkpoint saving was disabled (--no-save).")
+    else:
+        LOGGER.info("Training complete. Checkpoints saved to %s", output_dir)
 
 
 if __name__ == "__main__":

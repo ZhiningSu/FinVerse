@@ -12,7 +12,7 @@ class PriceOnlyGRU(nn.Module):
         price_dim: int = 6,
         hidden_dim: int = 256,
         output_dim: int = 6,
-        num_steps: int = 10,
+        num_steps: int = 30,
     ):
         super().__init__()
         self.hidden_dim = hidden_dim
@@ -149,16 +149,22 @@ class MultiModalNoRollout(nn.Module):
 
     def forward(self, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target=None):
         z = self.encode(price_seq, news_feat, macro_feat, edge_index, edge_weight)
-        inp = torch.cat([z, action], dim=-1)
-        h = self.transition(inp, z)
 
-        price_pred = self.decoder(h).squeeze(-1)
-        return_pred = self.return_head(h)
-        regime_logits = self.regime_head(h)
+        imagined = []
+        h = z
+        for _ in range(30):
+            inp = torch.cat([h, action], dim=-1)
+            h = self.transition(inp, h)
+            imagined.append(h)
+        imagined = torch.stack(imagined, dim=1)
+
+        price_pred = self.decoder(imagined).squeeze(-1)
+        return_pred = self.return_head(imagined[:, -1])
+        regime_logits = self.regime_head(imagined[:, -1])
 
         loss = torch.tensor(0.0, device=z.device)
         if price_target is not None and price_target.numel() > 0:
-            loss = F.mse_loss(price_pred.squeeze(-1), price_target[:, 0, 0])
+            loss = F.mse_loss(price_pred, price_target)
 
         return {
             "price_pred": price_pred,
@@ -273,7 +279,7 @@ class NoGraphWorldModel(nn.Module):
         mu, logvar = stats[..., :self.latent_dim], stats[..., self.latent_dim:]
         return mu, logvar
 
-    def imagine(self, prior_h, actions, horizon: int = 10):
+    def imagine(self, prior_h, actions, horizon: int = 30):
         self.eval()
         imagined = []
         h = prior_h
@@ -297,7 +303,7 @@ class NoGraphWorldModel(nn.Module):
         p_logvar = prior_stats[..., self.latent_dim:]
         kl = self.kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
 
-        imagined = self.imagine(z, action.unsqueeze(1).expand(-1, 10, -1), horizon=10)
+        imagined = self.imagine(z, action.unsqueeze(1).expand(-1, 30, -1), horizon=30)
         price_pred = self.decoder_price(imagined).squeeze(-1)
         return_pred = self.decoder_return(imagined[:, -1])
         regime_logits = self.decoder_regime(imagined[:, -1])

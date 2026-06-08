@@ -13,17 +13,37 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WorldModelLoss(nn.Module):
-    def __init__(self, kl_weight: float = 0.1, recon_weight: float = 1.0, regime_weight: float = 0.05):
+    def __init__(
+        self,
+        kl_weight: float = 0.1,
+        recon_weight: float = 1.0,
+        regime_weight: float = 0.05,
+        vq_weight: float = 0.05,
+    ):
         super().__init__()
         self.kl_weight = kl_weight
         self.recon_weight = recon_weight
         self.regime_weight = regime_weight
+        self.vq_weight = vq_weight
 
     def forward(self, model_output, price_target=None, regime_target=None):
         loss = model_output["loss"]
         kl = model_output["kl"].mean()
-        total = loss + self.kl_weight * kl
-        return total, {"kl": kl.item(), "recon": loss.item()}
+        vq_loss = model_output.get("vq_loss", torch.tensor(0.0, device=loss.device))
+        total = loss + self.kl_weight * kl + self.vq_weight * vq_loss
+        return total, {
+            "kl": kl.item(),
+            "recon": loss.item(),
+            "vq": vq_loss.item(),
+            "temporal_perplexity": self._as_float(model_output.get("temporal_perplexity", 0.0)),
+            "cross_perplexity": self._as_float(model_output.get("cross_perplexity", 0.0)),
+        }
+
+    @staticmethod
+    def _as_float(value):
+        if isinstance(value, torch.Tensor):
+            return value.detach().item()
+        return float(value)
 
 
 class BaselineLoss(nn.Module):
@@ -59,13 +79,24 @@ class Trainer:
         self.val_interval = val_interval
         self.global_step = 0
         self.best_val_loss = float("inf")
-        self.history = {"train_loss": [], "val_loss": [], "kl": [], "recon": []}
+        self.history = {
+            "train_loss": [],
+            "val_loss": [],
+            "kl": [],
+            "recon": [],
+            "vq": [],
+            "temporal_perplexity": [],
+            "cross_perplexity": [],
+        }
 
     def train_epoch(self, epoch: int):
         self.model.train()
         epoch_losses = []
         epoch_kls = []
         epoch_recons = []
+        epoch_vqs = []
+        epoch_temporal_ppl = []
+        epoch_cross_ppl = []
 
         pbar = tqdm(self.train_loader, desc=f"Epoch {epoch} Train")
         for batch in pbar:
@@ -90,15 +121,25 @@ class Trainer:
             epoch_losses.append(total_loss.item())
             epoch_kls.append(metrics["kl"])
             epoch_recons.append(metrics["recon"])
+            epoch_vqs.append(metrics.get("vq", 0.0))
+            epoch_temporal_ppl.append(metrics.get("temporal_perplexity", 0.0))
+            epoch_cross_ppl.append(metrics.get("cross_perplexity", 0.0))
 
             self.global_step += 1
             if self.global_step % self.log_interval == 0:
-                pbar.set_postfix(loss=f"{total_loss.item():.4f}", kl=f"{metrics['kl']:.4f}")
+                pbar.set_postfix(
+                    loss=f"{total_loss.item():.4f}",
+                    kl=f"{metrics['kl']:.4f}",
+                    vq=f"{metrics.get('vq', 0.0):.4f}",
+                )
 
         avg_loss = sum(epoch_losses) / len(epoch_losses)
         self.history["train_loss"].append(avg_loss)
         self.history["kl"].append(sum(epoch_kls) / len(epoch_kls))
         self.history["recon"].append(sum(epoch_recons) / len(epoch_recons))
+        self.history["vq"].append(sum(epoch_vqs) / len(epoch_vqs))
+        self.history["temporal_perplexity"].append(sum(epoch_temporal_ppl) / len(epoch_temporal_ppl))
+        self.history["cross_perplexity"].append(sum(epoch_cross_ppl) / len(epoch_cross_ppl))
 
         return avg_loss
 
@@ -143,5 +184,8 @@ class Trainer:
         self.model.load_state_dict(ckpt["model_state"])
         self.optimizer.load_state_dict(ckpt["optimizer_state"])
         self.history = ckpt.get("history", {"train_loss": [], "val_loss": [], "kl": [], "recon": []})
+        self.history.setdefault("vq", [])
+        self.history.setdefault("temporal_perplexity", [])
+        self.history.setdefault("cross_perplexity", [])
         self.global_step = ckpt.get("global_step", 0)
         return ckpt["epoch"]

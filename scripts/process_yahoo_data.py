@@ -5,6 +5,7 @@ import csv
 import json
 import logging
 import struct
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -20,7 +21,7 @@ BIN_FILE = OUT_DIR / "prices.bin"
 STATS_FILE = OUT_DIR / "stats.json"
 
 LOOKBACK = 30
-HORIZON = 10
+HORIZON = 30
 TOP_K_GRAPH = 5
 
 SPLITS = {
@@ -63,9 +64,9 @@ def load_raw_data():
     for jf in sorted(RAW_DIR.glob("*.json")):
         if jf.name == "fetch_report.json":
             continue
-        sym = jf.stem
         with open(jf, "r") as f:
             d = json.load(f)
+        sym = d.get("symbol", jf.stem)
         raw[sym] = {day["date"]: day for day in d["data"]}
     return raw
 
@@ -141,6 +142,7 @@ def write_split(split_name, indices, stats, out_file):
 
             graph_edges = [{"src_ticker": sym, "dst_ticker": neighbors[j], "weight": 1.0}
                            for j in range(len(neighbors))]
+            neighbor_indices = [SYM_TO_IDX[n] for n in neighbors]
 
             for i in indices:
                 lb = i - LOOKBACK
@@ -157,6 +159,7 @@ def write_split(split_name, indices, stats, out_file):
                     "date_idx": i,
                     "n_graph": n_graph,
                     "neighbors": neighbors,
+                    "neighbor_indices": neighbor_indices,
                     "seed": seed,
                     "graph_structures": graph_edges,
                 }
@@ -164,12 +167,25 @@ def write_split(split_name, indices, stats, out_file):
 
 
 def main():
-    global SECTOR_MAP
+    global SECTOR_MAP, RAW_DIR, TICKER_CSV, OUT_DIR, BIN_FILE, STATS_FILE
+
+    parser = argparse.ArgumentParser(description="Process raw market data into FinWorldDataset format.")
+    parser.add_argument("--source", type=str, default="yfinance", choices=["yfinance", "eastmoney"])
+    parser.add_argument("--ticker_file", type=Path, default=TICKER_CSV)
+    parser.add_argument("--out_dir", type=Path, default=OUT_DIR)
+    args = parser.parse_args()
+
+    RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / args.source
+    TICKER_CSV = args.ticker_file
+    OUT_DIR = args.out_dir
+    BIN_FILE = OUT_DIR / "prices.bin"
+    STATS_FILE = OUT_DIR / "stats.json"
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     LOG.info("Loading ticker list")
     SECTOR_MAP = load_tickers()
 
-    LOG.info("Loading raw Yahoo Finance data")
+    LOG.info("Loading raw %s data from %s", args.source, RAW_DIR)
     raw = load_raw_data()
     LOG.info("Loaded %d tickers", len(raw))
 
@@ -181,7 +197,15 @@ def main():
     LOG.info("Train stats: mean=%.2f, std=%.2f", stats["mean"], stats["std"])
 
     with open(STATS_FILE, "w") as f:
-        json.dump({"price_stats": stats, "macro_stats": {}}, f, indent=2)
+        json.dump({
+            "source": args.source,
+            "price_stats": stats,
+            "macro_stats": {},
+            "n_symbols": len(SUCCESS_SYMS),
+            "symbols": SUCCESS_SYMS,
+            "n_dates": len(ALL_DATES),
+            "dates": ALL_DATES,
+        }, f, indent=2)
     LOG.info("Wrote %s", STATS_FILE)
 
     write_prices_binary()

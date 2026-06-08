@@ -4,13 +4,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from models.tokenizers import DualVQMarketTokenizer
+
 
 class MultiModalEncoder(nn.Module):
 
-    def __init__(self, price_dim: int = 7, news_dim: int = 384, macro_dim: int = 8, graph_dim: int = 5, hidden_dim: int = 256, latent_dim: int = 128):
+    def __init__(
+        self,
+        price_dim: int = 7,
+        news_dim: int = 384,
+        macro_dim: int = 8,
+        graph_dim: int = 5,
+        hidden_dim: int = 256,
+        latent_dim: int = 128,
+        use_dual_vq: bool = True,
+    ):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.latent_dim = latent_dim
+        self.price_dim = price_dim
+        self.use_dual_vq = use_dual_vq
         self.price_lstm = nn.LSTM(price_dim, hidden_dim, batch_first=True)
         self.price_encoder = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
@@ -39,8 +52,21 @@ class MultiModalEncoder(nn.Module):
         )
         self.graph_pool = nn.Linear(hidden_dim // 2, hidden_dim // 2)
 
+        if use_dual_vq:
+            self.dual_vq_tokenizer = DualVQMarketTokenizer(
+                price_dim=price_dim,
+                hidden_dim=hidden_dim,
+                token_dim=hidden_dim // 4,
+                num_temporal_codes=256,
+                num_cross_codes=256,
+            )
+            fusion_dim = hidden_dim + hidden_dim // 2 + hidden_dim // 2 + hidden_dim // 2 + hidden_dim
+        else:
+            self.dual_vq_tokenizer = None
+            fusion_dim = hidden_dim + hidden_dim // 2 + hidden_dim // 2 + hidden_dim // 2
+
         self.fusion = nn.Sequential(
-            nn.Linear(hidden_dim + hidden_dim // 2 + hidden_dim // 2 + hidden_dim // 2, hidden_dim),
+            nn.Linear(fusion_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
@@ -49,12 +75,33 @@ class MultiModalEncoder(nn.Module):
         self.to_latent = nn.Linear(hidden_dim, latent_dim * 2)
 
     def forward(self, price_seq, news_feat, macro_feat, edge_index, edge_weight):
+        if news_feat.dim() == 2:
+            news_feat = news_feat.unsqueeze(1)
+        if macro_feat.dim() == 2:
+            macro_feat = macro_feat.unsqueeze(1)
+        if price_seq.size(2) < self.price_dim:
+            price_seq = torch.cat(
+                [
+                    price_seq,
+                    torch.zeros(
+                        price_seq.size(0),
+                        price_seq.size(1),
+                        self.price_dim - price_seq.size(2),
+                        device=price_seq.device,
+                        dtype=price_seq.dtype,
+                    ),
+                ],
+                dim=2,
+            )
+        elif price_seq.size(2) > self.price_dim:
+            price_seq = price_seq[:, :, : self.price_dim]
+
         lstm_out, _ = self.price_lstm(price_seq)
         price_h = self.price_encoder(lstm_out)
         price_h = price_h.mean(dim=1)
         news_h = self.news_encoder(news_feat).mean(dim=1)
         macro_h = self.macro_encoder(macro_feat).mean(dim=1)
-        n_nodes = int(edge_index.max().item()) + 1
+        n_nodes = self.price_dim
         if price_seq.size(2) < n_nodes:
             price_seq_padded = torch.cat([
                 price_seq,
@@ -65,11 +112,24 @@ class MultiModalEncoder(nn.Module):
         node_encoded = self.graph_encoder(price_seq_padded)
         graph_h = node_encoded.mean(dim=1)
 
-        combined = torch.cat([price_h, news_h, macro_h, graph_h], dim=-1)
+        aux = {
+            "vq_loss": price_seq.new_tensor(0.0),
+            "temporal_token_ids": None,
+            "cross_token_ids": None,
+            "temporal_perplexity": price_seq.new_tensor(0.0),
+            "cross_perplexity": price_seq.new_tensor(0.0),
+        }
+        parts = [price_h, news_h, macro_h, graph_h]
+        if self.dual_vq_tokenizer is not None:
+            vq = self.dual_vq_tokenizer(price_seq)
+            parts.extend([vq["temporal_h"], vq["cross_h"]])
+            aux.update(vq)
+
+        combined = torch.cat(parts, dim=-1)
         fused = self.fusion(combined)
         stats = self.to_latent(fused)
         mu, logvar = stats[..., :self.latent_dim], stats[..., self.latent_dim:]
-        return mu, logvar
+        return mu, logvar, aux
 
 
 class GraphAttentionEncoder(nn.Module):
@@ -147,7 +207,7 @@ class ObservationDecoder(nn.Module):
             nn.Linear(hidden_dim // 4, 4),
         )
 
-    def forward(self, latent, horizon: int = 10):
+    def forward(self, latent, horizon: int = 30):
         price_pred = self.price_head(latent)
         price_pred = price_pred.squeeze(-1)
         return_pred = self.return_head(latent)
@@ -167,12 +227,21 @@ class WorldModel(nn.Module):
         latent_dim: int = 128,
         hidden_dim: int = 256,
         num_tickers: int = 80,
+        use_dual_vq: bool = True,
     ):
         super().__init__()
         self.latent_dim = latent_dim
         self.num_tickers = num_tickers
 
-        self.encoder = MultiModalEncoder(price_dim, news_dim, macro_dim, graph_dim, hidden_dim, latent_dim)
+        self.encoder = MultiModalEncoder(
+            price_dim,
+            news_dim,
+            macro_dim,
+            graph_dim,
+            hidden_dim,
+            latent_dim,
+            use_dual_vq=use_dual_vq,
+        )
         self.transition = TransitionModel(latent_dim, action_dim, hidden_dim)
         self.decoder = ObservationDecoder(latent_dim, hidden_dim, num_tickers)
 
@@ -189,10 +258,13 @@ class WorldModel(nn.Module):
         kl = (q_var + (q_mu - p_mu) ** 2) / (p_var + 1e-8) + p_logvar - q_logvar - 1
         return 0.5 * kl.sum(dim=-1)
 
-    def encode(self, price_seq, news_feat, macro_feat, edge_index, edge_weight):
-        return self.encoder(price_seq, news_feat, macro_feat, edge_index, edge_weight)
+    def encode(self, price_seq, news_feat, macro_feat, edge_index, edge_weight, return_aux: bool = False):
+        q_mu, q_logvar, aux = self.encoder(price_seq, news_feat, macro_feat, edge_index, edge_weight)
+        if return_aux:
+            return q_mu, q_logvar, aux
+        return q_mu, q_logvar
 
-    def imagine(self, prior_h, actions, horizon: int = 10):
+    def imagine(self, prior_h, actions, horizon: int = 30):
         self.eval()
         imagined_states = []
         h = prior_h
@@ -207,15 +279,15 @@ class WorldModel(nn.Module):
         return torch.stack(imagined_states, dim=1)
 
     def forward(self, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target=None):
-        q_mu, q_logvar = self.encode(price_seq, news_feat, macro_feat, edge_index, edge_weight)
+        q_mu, q_logvar, aux = self.encode(price_seq, news_feat, macro_feat, edge_index, edge_weight, return_aux=True)
         z = self.reparameterize(q_mu, q_logvar)
         prior_h, prior_stats = self.transition(prev_latent=z, action=action)
         p_mu = prior_stats[..., : self.latent_dim]
         p_logvar = prior_stats[..., self.latent_dim:]
         kl = self.kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
 
-        imagined = self.imagine(z, action.unsqueeze(1).expand(-1, 10, -1), horizon=10)
-        price_pred, return_pred, regime_logits = self.decoder(imagined, horizon=10)
+        imagined = self.imagine(z, action.unsqueeze(1).expand(-1, 30, -1), horizon=30)
+        price_pred, return_pred, regime_logits = self.decoder(imagined, horizon=30)
 
         loss = torch.tensor(0.0, device=z.device)
         if price_target is not None and price_target.numel() > 0:
@@ -231,6 +303,11 @@ class WorldModel(nn.Module):
             "return_pred": return_pred,
             "regime_logits": regime_logits,
             "loss": loss,
+            "vq_loss": aux["vq_loss"],
+            "temporal_token_ids": aux["temporal_token_ids"],
+            "cross_token_ids": aux["cross_token_ids"],
+            "temporal_perplexity": aux["temporal_perplexity"],
+            "cross_perplexity": aux["cross_perplexity"],
         }
 
     def reparameterize(self, mu, logvar):

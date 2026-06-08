@@ -1,50 +1,95 @@
-# FinWorldModel
+<h1 align="center">FinWorldModel</h1>
 
-**Languages:** English | [中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+<p align="center">
+  <b>A Hierarchical Market State Constructor for Financial World Models</b>
+</p>
 
-FinWorldModel is an experimental framework for building a financial world model around **HMSC**: the **Hierarchical Market State Constructor**. HMSC converts multimodal financial observations into hierarchical market states that can support forecasting, imagination, and strategy evaluation.
+<p align="center">
+  <a href="https://github.com/ZhiningSu/FinVerse">
+    <img alt="GitHub Repo" src="https://img.shields.io/badge/GitHub-FinVerse-24292f?logo=github">
+  </a>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white">
+  <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-World%20Model-EE4C2C?logo=pytorch&logoColor=white">
+  <img alt="HMSC" src="https://img.shields.io/badge/Core-HMSC-6f42c1">
+  <img alt="Status" src="https://img.shields.io/badge/Status-Research%20Prototype-2ea44f">
+</p>
 
-## Core Idea
+<p align="center">
+  English | <a href="README.zh-CN.md">中文</a> | <a href="README.ja.md">日本語</a> | <a href="README.ko.md">한국어</a>
+</p>
 
-The project studies how a financial agent can internally understand the market before execution. Instead of treating market data as a flat time series, HMSC constructs structured state representations from:
+<p align="center">
+  <b>HMSC</b><br>
+  <sub>Hierarchical Market State Constructor</sub>
+</p>
 
-- OHLCV and technical market features
-- cross-asset and sector structure
-- macro and market-risk variables
-- public financial events and news signals
-- discrete spatio-temporal market tokens
+> FinWorldModel builds a financial agent's internal market-state constructor: it transforms multimodal market observations into hierarchical latent states that support forecasting, imagination, and strategy evaluation.
 
-## Model Components
+## Why FinWorldModel?
 
-- **Dual VQ Market Tokenizer:** converts temporal price patterns and cross-sectional market structure into discrete tokens.
-- **Multimodal Encoder:** fuses price, news/event, macro, and graph features.
-- **World Model:** learns latent market states and performs recurrent future rollout.
-- **Baselines:** price-only, multimodal without rollout, and no-graph variants.
+Financial markets are not flat numerical sequences. They are structured systems shaped by assets, sectors, regimes, macro conditions, and public events. FinWorldModel studies how an agent can construct an internal representation of this world before making downstream decisions.
 
-## Data
+At the center of the project is **HMSC**, a module designed to answer:
 
-The current target data window is:
+```text
+What is the current market state, and how may it evolve under different strategies?
+```
+
+## Highlights
+
+- **Hierarchical state construction:** asset-level, cross-sectional, event-aware, and market-level representations.
+- **Dual VQ tokenization:** discrete temporal and cross-sectional market tokens inspired by VQ-VAE style financial tokenization.
+- **Multimodal market modeling:** OHLCV, technical features, macro proxies, public events, and graph structure.
+- **Recurrent world model:** latent-state rollout for future market imagination.
+- **Lightweight experimentation:** CPU-friendly smoke tests and `--no-save` mode for limited local disk space.
+
+## Architecture
+
+```text
+OHLCV / technical features
+macro and market-risk variables
+public financial events and news signals
+cross-asset graph structure
+        │
+        ▼
+HMSC: Hierarchical Market State Constructor
+        │
+        ├── Temporal VQ Tokens
+        ├── Cross-sectional VQ Tokens
+        ├── Multimodal State Fusion
+        └── Latent Market State z_t
+        │
+        ▼
+Recurrent World Model
+        │
+        ▼
+Forecasting / Imagination / Strategy Evaluation
+```
+
+## Data Scope
+
+The current target window is:
 
 ```text
 2020-01-01 to 2025-12-31
 ```
 
-Main data sources include:
+The project currently supports:
 
 - Yahoo Finance OHLCV data
-- Yahoo market proxy variables such as VIX, dollar index, crude oil, gold, and 10Y yield proxy
-- Nasdaq IPO/public offering event data
+- market proxies such as VIX, dollar index, crude oil, gold, and 10Y yield proxy
+- Nasdaq IPO and public-offering events
 - optional SEC EDGAR and public news/event collection scripts
 
-The ticker universe is stored in:
+Ticker universe:
 
 ```text
 data/tickers/hmsc_us_90.csv
 ```
 
-## Run A Smoke Training Test
+## Quick Start
 
-Use `--no-save` when disk space is limited:
+Run a lightweight smoke training test:
 
 ```bash
 python train.py \
@@ -60,7 +105,9 @@ python train.py \
   --no-save
 ```
 
-## Project Structure
+Use `--no-save` when disk space is limited.
+
+## Repository Layout
 
 ```text
 configs/      training configuration
@@ -72,6 +119,6 @@ train.py      main training entry
 evaluate.py   evaluation entry
 ```
 
-## Notes
+## Research Status
 
-This project is under active research development. The current implementation focuses on validating HMSC, Dual VQ tokenization, and recurrent world-model learning before scaling to larger experiments.
+FinWorldModel is an active research prototype. The current implementation focuses on validating HMSC, Dual VQ market tokenization, and recurrent world-model learning before scaling to larger multimodal experiments.

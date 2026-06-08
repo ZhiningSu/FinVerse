@@ -1,8 +1,29 @@
-# FinWorldModel
+<h1 align="center">FinWorldModel</h1>
 
-**语言:** [English](README.md) | 中文 | [日本語](README.ja.md) | [한국어](README.ko.md)
+<p align="center">
+  <b>面向金融世界模型的分层市场状态构造器</b>
+</p>
 
-FinWorldModel 是一个围绕 **HMSC** 构建的金融世界模型实验框架。HMSC 的全称是 **Hierarchical Market State Constructor**，即分层市场状态构造器。它的目标是把多模态金融观测转化为可预测、可想象、可用于策略评估的分层市场状态。
+<p align="center">
+  <a href="https://github.com/ZhiningSu/FinVerse">
+    <img alt="GitHub Repo" src="https://img.shields.io/badge/GitHub-FinVerse-24292f?logo=github">
+  </a>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white">
+  <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-World%20Model-EE4C2C?logo=pytorch&logoColor=white">
+  <img alt="HMSC" src="https://img.shields.io/badge/Core-HMSC-6f42c1">
+  <img alt="Status" src="https://img.shields.io/badge/Status-Research%20Prototype-2ea44f">
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | 中文 | <a href="README.ja.md">日本語</a> | <a href="README.ko.md">한국어</a>
+</p>
+
+<p align="center">
+  <b>HMSC</b><br>
+  <sub>Hierarchical Market State Constructor</sub>
+</p>
+
+> FinWorldModel 是一个围绕 **HMSC** 构建的金融世界模型实验框架。它把多模态金融观测转化为可预测、可想象、可用于策略评估的分层市场状态。
 
 ## 核心思想
 

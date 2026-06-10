@@ -4,9 +4,11 @@ import argparse
 import json
 import logging
 import os
+import random
 import ssl
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
@@ -15,6 +17,15 @@ from torch.utils.data import DataLoader
 
 from datasets.finworld_dataset import FinWorldDataset, collate_fn
 from models.baselines import PriceOnlyGRU, MultiModalNoRollout, NoGraphWorldModel
+from models.forecasting_baselines import (
+    DLinearForecaster,
+    GRUForecaster,
+    ITransformerForecaster,
+    KronosMiniForecaster,
+    LSTMForecaster,
+    PatchTSTForecaster,
+    TransformerForecaster,
+)
 from models.world_model import WorldModel
 from trainers.trainer import Trainer, WorldModelLoss, BaselineLoss
 
@@ -32,10 +43,10 @@ DEFAULT_CONFIG = {
     "output_dir": "outputs",
     "latent_dim": 128,
     "hidden_dim": 256,
-    "kl_weight": 0.1,
+    "kl_weight": 0.001,
     "recon_weight": 1.0,
     "regime_weight": 0.05,
-    "vq_weight": 0.05,
+    "vq_weight": 0.001,
     "lr": 3e-4,
     "weight_decay": 1e-4,
     "batch_size": 32,
@@ -47,6 +58,8 @@ DEFAULT_CONFIG = {
     "num_workers": 0,
     "max_train_episodes": None,
     "max_val_episodes": None,
+    "target_mode": "return",
+    "seed": 42,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
 }
 
@@ -72,14 +85,20 @@ def build_parser():
     parser.add_argument("--num-workers", type=int, default=DEFAULT_CONFIG["num_workers"])
     parser.add_argument("--max-train-episodes", type=int, default=None)
     parser.add_argument("--max-val-episodes", type=int, default=None)
+    parser.add_argument("--target-mode", choices=["return", "price"], default=DEFAULT_CONFIG["target_mode"])
+    parser.add_argument("--seed", type=int, default=DEFAULT_CONFIG["seed"])
     parser.add_argument("--device", default=DEFAULT_CONFIG["device"])
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--no-save", action="store_true", help="Run training without writing checkpoints.")
     parser.add_argument("--price-stats", type=str, default=None)
     parser.add_argument("--macro-stats", type=str, default=None)
     parser.add_argument("--model", type=str, default="full",
-        choices=["full", "price_only", "multi_noroll", "no_graph"],
-        help="full=FinWorldModel, price_only=PriceOnlyGRU, multi_noroll=MultimodalNoRollout, no_graph=NoGraphWorldModel")
+        choices=[
+            "full", "price_only", "multi_noroll", "no_graph",
+            "lstm", "gru", "dlinear", "transformer", "patchtst", "itransformer",
+            "kronos_mini", "vanilla_rssm", "finverse",
+        ],
+        help="Model family to train.")
     return parser
 
 
@@ -90,15 +109,36 @@ def load_stats(path: str | Path | None):
         return json.load(f)
 
 
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 def build_model(model_name: str, args, device):
     extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": 66}
-    if model_name == "full":
+    if model_name in {"full", "finverse"}:
         model = WorldModel(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
         criterion = WorldModelLoss(
             kl_weight=args.kl_weight,
             recon_weight=args.recon_weight,
             regime_weight=args.regime_weight,
             vq_weight=args.vq_weight,
+        )
+    elif model_name == "vanilla_rssm":
+        model = WorldModel(
+            latent_dim=args.latent_dim,
+            hidden_dim=args.hidden_dim,
+            use_dual_vq=False,
+            **extra,
+        ).to(device)
+        criterion = WorldModelLoss(
+            kl_weight=args.kl_weight,
+            recon_weight=args.recon_weight,
+            regime_weight=args.regime_weight,
+            vq_weight=0.0,
         )
     elif model_name == "price_only":
         model = PriceOnlyGRU(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
@@ -114,11 +154,35 @@ def build_model(model_name: str, args, device):
             regime_weight=args.regime_weight,
             vq_weight=args.vq_weight,
         )
+    elif model_name == "lstm":
+        model = LSTMForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "gru":
+        model = GRUForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "dlinear":
+        model = DLinearForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "transformer":
+        model = TransformerForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "patchtst":
+        model = PatchTSTForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "itransformer":
+        model = ITransformerForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "kronos_mini":
+        model = KronosMiniForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    else:
+        raise ValueError(f"Unknown model: {model_name}")
     return model, criterion
 
 
 def main():
     args = build_parser().parse_args()
+    set_seed(args.seed)
     device = torch.device(args.device)
     output_dir = Path(args.output_dir) / args.model
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -130,6 +194,7 @@ def main():
         price_stats=load_stats(args.price_stats),
         macro_stats=load_stats(args.macro_stats),
         max_episodes=args.max_train_episodes,
+        target_mode=args.target_mode,
     )
     val_dataset = FinWorldDataset(
         root=args.data_root,
@@ -137,10 +202,20 @@ def main():
         price_stats=load_stats(args.price_stats),
         macro_stats=load_stats(args.macro_stats),
         max_episodes=args.max_val_episodes,
+        target_mode=args.target_mode,
     )
 
     LOGGER.info("Train episodes: %d | Val episodes: %d", len(train_dataset), len(val_dataset))
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_fn)
+    generator = torch.Generator()
+    generator.manual_seed(args.seed)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        collate_fn=collate_fn,
+        generator=generator,
+    )
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collate_fn) if val_dataset else None
 
     LOGGER.info("Building model (type=%s)...", args.model)
@@ -178,18 +253,20 @@ def main():
         if epoch % args.val_interval == 0 and val_loader:
             val_loss = trainer.validate(epoch)
 
-        is_best = val_loss < trainer.best_val_loss
+        selection_loss = trainer.last_val_metrics.get("recon", val_loss) if val_loader else val_loss
+        is_best = selection_loss < trainer.best_val_loss
         if is_best:
-            trainer.best_val_loss = val_loss
+            trainer.best_val_loss = selection_loss
 
         if not args.no_save and (epoch % args.save_interval == 0 or is_best):
             trainer.save_checkpoint(epoch, is_best=is_best)
 
         LOGGER.info(
-            "Epoch %d | Train Loss: %.4f | Val Loss: %.4f | Best: %.4f",
+            "Epoch %d | Train Loss: %.4f | Val Loss: %.4f | Val Recon: %.4f | Best Recon: %.4f",
             epoch,
             train_loss,
             val_loss,
+            selection_loss,
             trainer.best_val_loss,
         )
 

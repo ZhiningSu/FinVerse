@@ -265,7 +265,6 @@ class WorldModel(nn.Module):
         return q_mu, q_logvar
 
     def imagine(self, prior_h, actions, horizon: int = 30):
-        self.eval()
         imagined_states = []
         h = prior_h
         actions = actions.to(prior_h.device)

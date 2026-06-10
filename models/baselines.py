@@ -164,7 +164,8 @@ class MultiModalNoRollout(nn.Module):
 
         loss = torch.tensor(0.0, device=z.device)
         if price_target is not None and price_target.numel() > 0:
-            loss = F.mse_loss(price_pred, price_target)
+            target = price_target[:, :, 0] if price_target.dim() == 3 else price_target
+            loss = F.mse_loss(price_pred, target)
 
         return {
             "price_pred": price_pred,
@@ -280,7 +281,6 @@ class NoGraphWorldModel(nn.Module):
         return mu, logvar
 
     def imagine(self, prior_h, actions, horizon: int = 30):
-        self.eval()
         imagined = []
         h = prior_h
         actions = actions.to(prior_h.device)

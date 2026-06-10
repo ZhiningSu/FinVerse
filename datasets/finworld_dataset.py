@@ -169,13 +169,19 @@ class FinWorldDataset(Dataset):
 
     def __init__(self, root: str | Path, split: str = "train",
                  price_stats: dict | None = None, macro_stats: dict | None = None,
-                 max_episodes: int | None = None):
+                 max_episodes: int | None = None,
+                 max_dates: int | None = None,
+                 target_mode: str = "return"):
         self.root = Path(root)
         self.split = split
         self.episode_file = self.root / "episodes" / f"{split}.jsonl"
         self.price_stats = price_stats or {}
         self.macro_stats = macro_stats or {}
         self.max_episodes = max_episodes
+        self.max_dates = max_dates
+        self.target_mode = target_mode
+        if self.target_mode not in {"return", "price"}:
+            raise ValueError(f"Unsupported target_mode: {self.target_mode}")
 
         self.price_buffer = _load_price_buffer(self.root)
         self.news_by_date = _load_news_features(self.root)
@@ -193,6 +199,19 @@ class FinWorldDataset(Dataset):
                     if not line:
                         continue
                     self._meta.append(json.loads(line))
+
+        if max_dates and self._meta:
+            selected_dates = []
+            seen = set()
+            for item in self._meta:
+                date_idx = item.get("date_idx")
+                if date_idx not in seen:
+                    selected_dates.append(date_idx)
+                    seen.add(date_idx)
+                if len(selected_dates) >= max_dates:
+                    break
+            selected_date_set = set(selected_dates)
+            self._meta = [item for item in self._meta if item.get("date_idx") in selected_date_set]
 
         if max_episodes:
             self._meta = self._meta[:max_episodes]
@@ -216,14 +235,17 @@ class FinWorldDataset(Dataset):
         meta = self._meta[idx]
 
         if self._synthesize:
+            date_idx = idx
+            si = 0
             np.random.seed(42 + idx)
             price_seq = np.random.randn(LOOKBACK, 5).astype(np.float32)
             news_feat = np.random.randn(LOOKBACK, 384).astype(np.float32)
             macro_feat = np.random.randn(LOOKBACK, 8).astype(np.float32)
             edge_index = torch.zeros(2, TOP_K_GRAPH, dtype=torch.long)
             edge_weight = torch.rand(TOP_K_GRAPH)
-            price_target = np.random.randn(HORIZON, 5).astype(np.float32)
-            action = np.random.randn(8).astype(np.float32)
+            scale = 0.02 if self.target_mode == "return" else 1.0
+            price_target = (np.random.randn(HORIZON, 5) * scale).astype(np.float32)
+            action = np.zeros(8, dtype=np.float32)
         else:
             si = meta["ticker_idx"]
             date_idx = meta["date_idx"]
@@ -241,13 +263,18 @@ class FinWorldDataset(Dataset):
             price_seq = ((lookback_slice - mu) / sigma).astype(np.float32)
 
             horizon_slice = self.price_buffer[date_idx:date_idx + HORIZON, g_indices]
-            price_target = ((horizon_slice - mu) / sigma).astype(np.float32)
+            if self.target_mode == "return":
+                base = lookback_slice[-1:, :]
+                price_target = horizon_slice / (base + 1e-8) - 1.0
+                price_target = np.nan_to_num(price_target, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+            else:
+                price_target = ((horizon_slice - mu) / sigma).astype(np.float32)
 
             date_str = str(date_idx)
             news_feat = _make_news_seq(self.news_by_date, date_str)
             macro_feat = _make_macro_seq(self.news_by_date, date_str)
 
-            action = np.random.randn(8).astype(np.float32)
+            action = np.zeros(8, dtype=np.float32)
 
             edge_index, edge_weight = self._build_edges(meta)
 
@@ -259,6 +286,8 @@ class FinWorldDataset(Dataset):
             "edge_weight": edge_weight,
             "price_target": torch.from_numpy(price_target),
             "action": torch.from_numpy(action),
+            "date_idx": torch.tensor(date_idx, dtype=torch.long),
+            "ticker_idx": torch.tensor(si, dtype=torch.long),
         }
 
     @staticmethod

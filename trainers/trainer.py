@@ -79,9 +79,13 @@ class Trainer:
         self.val_interval = val_interval
         self.global_step = 0
         self.best_val_loss = float("inf")
+        self.last_val_metrics = {}
         self.history = {
             "train_loss": [],
             "val_loss": [],
+            "val_recon": [],
+            "val_kl": [],
+            "val_vq": [],
             "kl": [],
             "recon": [],
             "vq": [],
@@ -149,6 +153,7 @@ class Trainer:
             return 0.0
         self.model.eval()
         val_losses = []
+        metric_values = {}
         pbar = tqdm(self.val_loader, desc=f"Epoch {epoch} Val")
         for batch in pbar:
             batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
@@ -160,11 +165,21 @@ class Trainer:
             price_target = batch["price_target"]
             action = batch["action"]
             output = self.model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target)
-            total_loss, _ = self.criterion(output, price_target)
+            total_loss, metrics = self.criterion(output, price_target)
             val_losses.append(total_loss.item())
+            for key, value in metrics.items():
+                metric_values.setdefault(key, []).append(float(value))
 
         avg_val = sum(val_losses) / len(val_losses)
+        self.last_val_metrics = {
+            key: sum(values) / len(values)
+            for key, values in metric_values.items()
+            if values
+        }
         self.history["val_loss"].append(avg_val)
+        self.history["val_recon"].append(self.last_val_metrics.get("recon", avg_val))
+        self.history["val_kl"].append(self.last_val_metrics.get("kl", 0.0))
+        self.history["val_vq"].append(self.last_val_metrics.get("vq", 0.0))
         return avg_val
 
     def save_checkpoint(self, epoch: int, is_best: bool = False):
@@ -185,6 +200,9 @@ class Trainer:
         self.optimizer.load_state_dict(ckpt["optimizer_state"])
         self.history = ckpt.get("history", {"train_loss": [], "val_loss": [], "kl": [], "recon": []})
         self.history.setdefault("vq", [])
+        self.history.setdefault("val_recon", [])
+        self.history.setdefault("val_kl", [])
+        self.history.setdefault("val_vq", [])
         self.history.setdefault("temporal_perplexity", [])
         self.history.setdefault("cross_perplexity", [])
         self.global_step = ckpt.get("global_step", 0)

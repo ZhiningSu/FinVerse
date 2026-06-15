@@ -18,3 +18,9 @@ outputs_test/
 frpc.toml
 frps.toml
 *.log
+*.aux
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz

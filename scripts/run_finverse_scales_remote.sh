@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PY=${PY:-/home/wjt/anaconda3/envs/sft/bin/python}
-DATA_ROOT=${DATA_ROOT:-data/processed/real}
+DATA_ROOT=${DATA_ROOT:-data/processed/real_90}
 DEVICE=${DEVICE:-cuda}
 HIDDEN_DIM=${HIDDEN_DIM:-128}
 BATCH_SIZE=${BATCH_SIZE:-128}

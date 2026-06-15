@@ -234,3 +234,124 @@ class KronosMiniForecaster(nn.Module, ForecastOutputMixin):
             }
         )
         return out
+
+
+class TimesFMStyleForecaster(nn.Module, ForecastOutputMixin):
+    """
+    Lightweight TimesFM-style baseline.
+
+    This is not the official Google TimesFM pretrained checkpoint. It uses the
+    same broad idea of patching a long context into time tokens and decoding a
+    multi-horizon forecast, but is trained from scratch on the project data.
+    """
+
+    def __init__(
+        self,
+        price_dim: int = 6,
+        hidden_dim: int = 256,
+        output_dim: int = 6,
+        num_steps: int = 30,
+        patch_len: int = 6,
+        stride: int = 3,
+    ):
+        super().__init__()
+        self.output_dim = output_dim
+        self.num_steps = num_steps
+        self.patch_len = patch_len
+        self.stride = stride
+        self.patch_proj = nn.Linear(price_dim * patch_len, hidden_dim)
+        self.context_gate = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.Sigmoid(),
+        )
+        self.pos = PositionalEncoding(hidden_dim)
+        layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=4,
+            dim_feedforward=hidden_dim * 4,
+            dropout=0.1,
+            batch_first=True,
+            activation="gelu",
+        )
+        self.encoder = nn.TransformerEncoder(layer, num_layers=3)
+        self.horizon_queries = nn.Parameter(torch.randn(1, num_steps, hidden_dim) * 0.02)
+        self.decoder = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
+        self.head = nn.Sequential(nn.LayerNorm(hidden_dim), nn.Linear(hidden_dim, output_dim))
+
+    def forward(self, price_seq, news_feat=None, macro_feat=None, edge_index=None, edge_weight=None, action=None, price_target=None):
+        mean = price_seq.mean(dim=1, keepdim=True)
+        std = price_seq.std(dim=1, keepdim=True).clamp_min(1e-4)
+        x_norm = (price_seq - mean) / std
+        patches = x_norm.unfold(dimension=1, size=self.patch_len, step=self.stride)
+        patches = patches.permute(0, 1, 3, 2).reshape(price_seq.size(0), patches.size(1), -1)
+        tokens = self.pos(self.patch_proj(patches))
+        encoded = self.encoder(tokens)
+        context = encoded.mean(dim=1)
+        context = context * self.context_gate(context)
+        queries = self.horizon_queries.expand(price_seq.size(0), -1, -1) + context.unsqueeze(1)
+        decoded, _ = self.decoder(queries)
+        pred_norm = self.head(decoded)
+        pred = pred_norm * std[:, :, : self.output_dim] + mean[:, :, : self.output_dim]
+        return self._loss_output(pred, price_target)
+
+
+class ChronosMiniForecaster(nn.Module, ForecastOutputMixin):
+    """
+    Lightweight Chronos-mini baseline.
+
+    This is not the official Amazon Chronos pretrained model. It discretizes
+    numerical time-series values into token bins, embeds the tokens, and trains a
+    small Transformer from scratch to forecast continuous future returns.
+    """
+
+    def __init__(
+        self,
+        price_dim: int = 6,
+        hidden_dim: int = 256,
+        output_dim: int = 6,
+        num_steps: int = 30,
+        vocab_size: int = 256,
+        clip_value: float = 5.0,
+    ):
+        super().__init__()
+        self.price_dim = price_dim
+        self.output_dim = output_dim
+        self.num_steps = num_steps
+        self.vocab_size = vocab_size
+        self.clip_value = clip_value
+        self.value_embed = nn.Embedding(vocab_size, hidden_dim)
+        self.channel_embed = nn.Parameter(torch.randn(1, 1, price_dim, hidden_dim) * 0.02)
+        self.pos = PositionalEncoding(hidden_dim, max_len=1024)
+        layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=4,
+            dim_feedforward=hidden_dim * 2,
+            dropout=0.1,
+            batch_first=True,
+            activation="gelu",
+        )
+        self.encoder = nn.TransformerEncoder(layer, num_layers=3)
+        self.head = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, num_steps * output_dim),
+        )
+
+    def _tokenize(self, price_seq):
+        clipped = price_seq.clamp(-self.clip_value, self.clip_value)
+        scaled = (clipped + self.clip_value) / (2 * self.clip_value)
+        return torch.clamp((scaled * (self.vocab_size - 1)).long(), 0, self.vocab_size - 1)
+
+    def forward(self, price_seq, news_feat=None, macro_feat=None, edge_index=None, edge_weight=None, action=None, price_target=None):
+        token_ids = self._tokenize(price_seq)
+        emb = self.value_embed(token_ids)
+        emb = emb + self.channel_embed[:, :, : price_seq.size(2)]
+        emb = emb.reshape(price_seq.size(0), price_seq.size(1) * price_seq.size(2), -1)
+        emb = self.pos(emb)
+        h = self.encoder(emb).mean(dim=1)
+        pred = self.head(h).view(price_seq.size(0), self.num_steps, self.output_dim)
+        return self._loss_output(pred, price_target)

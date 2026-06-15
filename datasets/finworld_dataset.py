@@ -14,15 +14,21 @@ LOGGER = logging.getLogger(__name__)
 LOOKBACK = 30
 HORIZON = 30
 TOP_K_GRAPH = 5
+REGIME_LOOKAHEAD = 5
+REGIME_BEAR_THRESHOLD = -0.01
+REGIME_BULL_THRESHOLD = 0.01
 
 _PRICE_BUFFER = None
 _PRICE_STATS = None
 _NEWS_FEATURES = None
+_PRICE_ROOT = None
+_NEWS_ROOT = None
 
 
 def _load_price_buffer(root: Path):
-    global _PRICE_BUFFER, _PRICE_STATS
-    if _PRICE_BUFFER is None:
+    global _PRICE_BUFFER, _PRICE_STATS, _PRICE_ROOT
+    root = Path(root).resolve()
+    if _PRICE_BUFFER is None or _PRICE_ROOT != root:
         bin_path = root / "prices.bin"
         stats_path = root / "stats.json"
 
@@ -44,14 +50,16 @@ def _load_price_buffer(root: Path):
         n_dates = buf.shape[0] // n_symbols
         buf = buf.reshape(n_dates, n_symbols)
         _PRICE_BUFFER = buf
+        _PRICE_ROOT = root
         LOGGER.info("Loaded price buffer: shape=%s, mean=%.2f, std=%.2f",
                     str(buf.shape), _PRICE_STATS["mean"], _PRICE_STATS["std"])
     return _PRICE_BUFFER
 
 
 def _load_news_features(root: Path):
-    global _NEWS_FEATURES
-    if _NEWS_FEATURES is not None:
+    global _NEWS_FEATURES, _NEWS_ROOT
+    root = Path(root).resolve()
+    if _NEWS_FEATURES is not None and _NEWS_ROOT == root:
         return _NEWS_FEATURES
 
     proxy_path = root / "processed" / "news_proxy.jsonl"
@@ -74,6 +82,7 @@ def _load_news_features(root: Path):
                 }
         LOGGER.info("Loaded news proxy features for %d dates from %s", len(by_date), proxy_path)
         _NEWS_FEATURES = by_date
+        _NEWS_ROOT = root
         return _NEWS_FEATURES
 
     LOGGER.info("news_proxy.jsonl not found — using price-derived macro features")
@@ -90,6 +99,7 @@ def _load_news_features(root: Path):
         vol = float(np.std(rets)) if rets else 0.0
         by_date[str(idx)] = {"sentiment": sent, "realized_vol": vol, "macro": np.zeros(8, dtype=np.float32)}
     _NEWS_FEATURES = by_date
+    _NEWS_ROOT = root
     return _NEWS_FEATURES
 
 
@@ -163,6 +173,20 @@ def _make_macro_seq(news_by_date: dict, date_str: str | int, lookback: int = LOO
         weighted + np.random.RandomState(i).randn(8).astype(np.float32) * 0.01
         for i in range(lookback)
     ], axis=0).astype(np.float32)
+
+
+def _make_regime_label(price_target: np.ndarray) -> int:
+    target = price_target
+    if target.ndim == 2:
+        target = target[:REGIME_LOOKAHEAD, 0]
+    else:
+        target = target[:REGIME_LOOKAHEAD]
+    score = float(np.nanmean(target))
+    if score <= REGIME_BEAR_THRESHOLD:
+        return 0
+    if score >= REGIME_BULL_THRESHOLD:
+        return 2
+    return 1
 
 
 class FinWorldDataset(Dataset):
@@ -278,6 +302,8 @@ class FinWorldDataset(Dataset):
 
             edge_index, edge_weight = self._build_edges(meta)
 
+        regime_target = _make_regime_label(price_target)
+
         return {
             "price_seq": torch.from_numpy(price_seq),
             "news_feat": torch.from_numpy(news_feat),
@@ -288,6 +314,7 @@ class FinWorldDataset(Dataset):
             "action": torch.from_numpy(action),
             "date_idx": torch.tensor(date_idx, dtype=torch.long),
             "ticker_idx": torch.tensor(si, dtype=torch.long),
+            "regime_target": torch.tensor(regime_target, dtype=torch.long),
         }
 
     @staticmethod

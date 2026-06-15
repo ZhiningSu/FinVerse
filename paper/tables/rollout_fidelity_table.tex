@@ -1,0 +1,18 @@
+\begin{table*}[t]
+\centering
+\caption{Rollout fidelity for imagined return trajectories. Lower StateMSE indicates that the imagined trajectory better matches the realized future trajectory.}
+\label{tab:rollout_fidelity}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+Model & StateMSE@1 & StateMSE@5 & StateMSE@10 & StateMSE@20 & StateMSE@30 \\
+\midrule
+Full FinVerse & 0.0003 & 0.0015 & 0.0027 & 0.0046 & \textbf{0.0071} \\
+w/o Dual VQ & 0.0004 & 0.0015 & 0.0027 & 0.0046 & 0.0072 \\
+w/o Cross-Asset Ctx & 0.0005 & \textbf{0.0015} & \textbf{0.0027} & 0.0046 & 0.0071 \\
+w/o Probabilistic WM & \textbf{0.0003} & 0.0016 & 0.0027 & 0.0046 & 0.0072 \\
+Price Only & 0.0008 & 0.0015 & 0.0030 & \textbf{0.0045} & 0.0071 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}

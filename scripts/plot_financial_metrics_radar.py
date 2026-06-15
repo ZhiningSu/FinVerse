@@ -93,7 +93,7 @@ def write_csv(path: Path, raw: dict, scores: dict):
             )
 
 
-def plot_radar(scores: dict, output_png: Path, output_pdf: Path, annotate: bool = False):
+def plot_radar(scores: dict, output_png: Path, output_pdf: Path, annotate: bool = False, highlight: bool = False):
     angles = np.linspace(0, 2 * np.pi, len(AXES), endpoint=False).tolist()
     angles += angles[:1]
 
@@ -102,8 +102,11 @@ def plot_radar(scores: dict, output_png: Path, output_pdf: Path, annotate: bool 
         "FinVerse-Small": "#0B4EA2",
         "FinVerse-Medium": "#2563EB",
         "FinVerse-Large": "#38BDF8",
+        "TimesFM": "#64748B",
+        "Chronos-mini": "#9333EA",
         "Kronos-mini": "#1F9ED6",
         "Vanilla RSSM": "#16A34A",
+        "Dreamer-style RSSM": "#14B8A6",
         "PatchTST": "#F59E0B",
         "Transformer": "#EF4444",
         "LSTM": "#8B5CF6",
@@ -113,8 +116,11 @@ def plot_radar(scores: dict, output_png: Path, output_pdf: Path, annotate: bool 
         "FinVerse-Small",
         "FinVerse-Medium",
         "FinVerse-Large",
+        "TimesFM",
+        "Chronos-mini",
         "Kronos-mini",
         "Vanilla RSSM",
+        "Dreamer-style RSSM",
         "PatchTST",
         "Transformer",
         "LSTM",
@@ -130,9 +136,12 @@ def plot_radar(scores: dict, output_png: Path, output_pdf: Path, annotate: bool 
         values = display_values + display_values[:1]
         color = palette.get(model)
         is_ours = model in FILLED_MODELS
-        ax.plot(angles, values, label=model, color=color, linewidth=3.0 if is_ours else 1.8)
+        linewidth = 4.2 if is_ours and highlight else 3.0 if is_ours else 1.1 if highlight else 1.8
+        alpha = 0.95 if is_ours else 0.32 if highlight else 1.0
+        zorder = 5 if is_ours else 2
+        ax.plot(angles, values, label=model, color=color, linewidth=linewidth, alpha=alpha, zorder=zorder)
         if is_ours:
-            ax.fill(angles, values, color=color, alpha=0.08)
+            ax.fill(angles, values, color=color, alpha=0.13 if highlight else 0.08, zorder=1)
         if annotate:
             for idx, (raw_value, display_value) in enumerate(zip(axis_values, display_values)):
                 ax.text(
@@ -154,7 +163,10 @@ def plot_radar(scores: dict, output_png: Path, output_pdf: Path, annotate: bool 
     ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_yticklabels(["0.2", "0.4", "0.6", "0.8", "1.0"], fontsize=9)
     ax.grid(color="#B7BEC8", alpha=0.7)
-    ax.set_title("Financial Forecasting and Portfolio Radar", fontsize=16, pad=28, weight="bold")
+    title = "Financial Forecasting and Portfolio Radar"
+    if highlight:
+        title = "FinVerse-highlighted Financial Radar"
+    ax.set_title(title, fontsize=16, pad=28, weight="bold")
     ax.legend(loc="lower right", bbox_to_anchor=(1.36, -0.06), frameon=True, fontsize=10)
     fig.text(
         0.5,
@@ -194,6 +206,19 @@ def main():
         output_dir / "financial_metrics_radar_extended_annotated.png",
         output_dir / "financial_metrics_radar_extended_annotated.pdf",
         annotate=True,
+    )
+    plot_radar(
+        scores,
+        output_dir / "financial_metrics_radar_extended_finverse_highlight.png",
+        output_dir / "financial_metrics_radar_extended_finverse_highlight.pdf",
+        highlight=True,
+    )
+    plot_radar(
+        scores,
+        output_dir / "financial_metrics_radar_extended_finverse_highlight_annotated.png",
+        output_dir / "financial_metrics_radar_extended_finverse_highlight_annotated.pdf",
+        annotate=True,
+        highlight=True,
     )
 
 

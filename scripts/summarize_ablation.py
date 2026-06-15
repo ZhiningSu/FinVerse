@@ -9,7 +9,7 @@ from pathlib import Path
 MODEL_ORDER = [
     "Full FinVerse",
     "w/o Dual VQ",
-    "w/o Graph",
+    "w/o Cross-Asset Ctx",
     "w/o Probabilistic WM",
     "Price Only",
 ]
@@ -36,14 +36,37 @@ PORTFOLIO_COLUMNS = [
     ("IC", "IC_mean", "higher"),
     ("RankIC", "RankIC_mean", "higher"),
     ("Vol. MAE", "Volatility_MAE", "lower"),
-    ("IR", "IR", "higher"),
-    ("AER", "AER", "higher"),
+    ("Daily Mean", "Daily_Mean_Return", "higher"),
+    ("Daily Std", "Daily_Return_Std", "lower"),
+    ("Daily IR", "IR_Daily", "higher"),
+    ("Ann. Ret.", "AER", "higher"),
 ]
 
 
 def load_json(path: Path) -> dict:
     with path.open() as f:
-        return json.load(f)
+        payload = json.load(f)
+    if "w/o Graph" in payload and "w/o Cross-Asset Ctx" not in payload:
+        payload["w/o Cross-Asset Ctx"] = payload.pop("w/o Graph")
+    for metrics in payload.values():
+        add_portfolio_derived_metrics(metrics)
+    return payload
+
+
+def add_portfolio_derived_metrics(metrics: dict) -> None:
+    if metrics.get("Daily_Mean_Return") is None and metrics.get("AER") is not None:
+        metrics["Daily_Mean_Return"] = float(metrics["AER"]) / 252.0
+    if metrics.get("IR_Daily") is None and metrics.get("IR") is not None:
+        metrics["IR_Daily"] = float(metrics["IR"]) / (252.0 ** 0.5)
+    if metrics.get("IR_Annualized") is None and metrics.get("IR") is not None:
+        metrics["IR_Annualized"] = metrics["IR"]
+    if metrics.get("Daily_Return_Std") is None:
+        daily_mean = metrics.get("Daily_Mean_Return")
+        daily_ir = metrics.get("IR_Daily")
+        if daily_mean is None or daily_ir is None or abs(float(daily_ir)) < 1e-12:
+            metrics["Daily_Return_Std"] = 0.0
+        else:
+            metrics["Daily_Return_Std"] = abs(float(daily_mean) / float(daily_ir))
 
 
 def fmt(value: float) -> str:
@@ -145,8 +168,8 @@ def main() -> None:
     portfolio_note = (
         "Neural model variants are evaluated on 100 complete test trading days with "
         "top-k=5 long-short portfolios and return clipping at 5\\%. BUY\\&HOLD is an "
-        "equal-weight long-only market-basket baseline over the same dates. Lower is "
-        "better for forecast errors and Vol. MAE; higher is better for IC, RankIC, IR, and AER."
+        "equal-weight long-only market-basket baseline over the same dates. We report "
+        "daily return statistics to avoid relying only on potentially misleading annualized IR."
     )
 
     tex = "\n\n".join(

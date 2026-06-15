@@ -30,11 +30,19 @@ class WorldModelLoss(nn.Module):
         loss = model_output["loss"]
         kl = model_output["kl"].mean()
         vq_loss = model_output.get("vq_loss", torch.tensor(0.0, device=loss.device))
-        total = loss + self.kl_weight * kl + self.vq_weight * vq_loss
+        regime_loss = torch.tensor(0.0, device=loss.device)
+        if regime_target is not None and "regime_logits" in model_output:
+            logits = model_output["regime_logits"]
+            if logits.dim() == 3:
+                logits = logits[:, -1, :]
+            logits = logits[:, :3]
+            regime_loss = F.cross_entropy(logits, regime_target.long())
+        total = loss + self.kl_weight * kl + self.vq_weight * vq_loss + self.regime_weight * regime_loss
         return total, {
             "kl": kl.item(),
             "recon": loss.item(),
             "vq": vq_loss.item(),
+            "regime": regime_loss.item(),
             "temporal_perplexity": self._as_float(model_output.get("temporal_perplexity", 0.0)),
             "cross_perplexity": self._as_float(model_output.get("cross_perplexity", 0.0)),
         }
@@ -89,6 +97,8 @@ class Trainer:
             "kl": [],
             "recon": [],
             "vq": [],
+            "regime": [],
+            "val_regime": [],
             "temporal_perplexity": [],
             "cross_perplexity": [],
         }
@@ -99,6 +109,7 @@ class Trainer:
         epoch_kls = []
         epoch_recons = []
         epoch_vqs = []
+        epoch_regimes = []
         epoch_temporal_ppl = []
         epoch_cross_ppl = []
 
@@ -113,9 +124,10 @@ class Trainer:
             edge_weight = batch["edge_weight"]
             price_target = batch["price_target"]
             action = batch["action"]
+            regime_target = batch.get("regime_target")
 
             output = self.model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target)
-            total_loss, metrics = self.criterion(output, price_target)
+            total_loss, metrics = self.criterion(output, price_target, regime_target)
 
             self.optimizer.zero_grad()
             total_loss.backward()
@@ -126,6 +138,7 @@ class Trainer:
             epoch_kls.append(metrics["kl"])
             epoch_recons.append(metrics["recon"])
             epoch_vqs.append(metrics.get("vq", 0.0))
+            epoch_regimes.append(metrics.get("regime", 0.0))
             epoch_temporal_ppl.append(metrics.get("temporal_perplexity", 0.0))
             epoch_cross_ppl.append(metrics.get("cross_perplexity", 0.0))
 
@@ -135,6 +148,7 @@ class Trainer:
                     loss=f"{total_loss.item():.4f}",
                     kl=f"{metrics['kl']:.4f}",
                     vq=f"{metrics.get('vq', 0.0):.4f}",
+                    regime=f"{metrics.get('regime', 0.0):.4f}",
                 )
 
         avg_loss = sum(epoch_losses) / len(epoch_losses)
@@ -142,6 +156,7 @@ class Trainer:
         self.history["kl"].append(sum(epoch_kls) / len(epoch_kls))
         self.history["recon"].append(sum(epoch_recons) / len(epoch_recons))
         self.history["vq"].append(sum(epoch_vqs) / len(epoch_vqs))
+        self.history["regime"].append(sum(epoch_regimes) / len(epoch_regimes))
         self.history["temporal_perplexity"].append(sum(epoch_temporal_ppl) / len(epoch_temporal_ppl))
         self.history["cross_perplexity"].append(sum(epoch_cross_ppl) / len(epoch_cross_ppl))
 
@@ -164,8 +179,9 @@ class Trainer:
             edge_weight = batch["edge_weight"]
             price_target = batch["price_target"]
             action = batch["action"]
+            regime_target = batch.get("regime_target")
             output = self.model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target)
-            total_loss, metrics = self.criterion(output, price_target)
+            total_loss, metrics = self.criterion(output, price_target, regime_target)
             val_losses.append(total_loss.item())
             for key, value in metrics.items():
                 metric_values.setdefault(key, []).append(float(value))
@@ -180,6 +196,7 @@ class Trainer:
         self.history["val_recon"].append(self.last_val_metrics.get("recon", avg_val))
         self.history["val_kl"].append(self.last_val_metrics.get("kl", 0.0))
         self.history["val_vq"].append(self.last_val_metrics.get("vq", 0.0))
+        self.history["val_regime"].append(self.last_val_metrics.get("regime", 0.0))
         return avg_val
 
     def save_checkpoint(self, epoch: int, is_best: bool = False):
@@ -200,6 +217,8 @@ class Trainer:
         self.optimizer.load_state_dict(ckpt["optimizer_state"])
         self.history = ckpt.get("history", {"train_loss": [], "val_loss": [], "kl": [], "recon": []})
         self.history.setdefault("vq", [])
+        self.history.setdefault("regime", [])
+        self.history.setdefault("val_regime", [])
         self.history.setdefault("val_recon", [])
         self.history.setdefault("val_kl", [])
         self.history.setdefault("val_vq", [])

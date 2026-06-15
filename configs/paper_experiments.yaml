@@ -1,0 +1,132 @@
+data:
+  data_root: data/processed/real_90
+  market: US
+  window: "2020-2025"
+  active_assets: 90
+  lookback: 30
+  horizon: 30
+  target_mode: return
+  split: chronological
+
+training:
+  seed: 42
+  device: cuda
+  hidden_dim: 128
+  latent_dim: 128
+  batch_size: 128
+  num_workers: 0
+  lr: 3e-4
+  weight_decay: 1e-4
+  kl_weight: 0.001
+  vq_weight: 0.001
+  regime_weight: 0.1
+  gradient_clip: 1.0
+
+runs:
+  smoke:
+    epochs: 1
+    train_episodes: 64
+    val_episodes: 32
+    test_episodes: 100
+  small:
+    epochs: 3
+    train_episodes: 1000
+    val_episodes: 300
+    test_episodes: 500
+  medium:
+    epochs: 10
+    train_episodes: 3000
+    val_episodes: 800
+    test_episodes: 1000
+  large:
+    epochs: 20
+    train_episodes: 6000
+    val_episodes: 1200
+    test_episodes: 1500
+
+models:
+  main:
+    - finverse
+  ablations:
+    - vanilla_rssm
+    - no_graph
+    - multi_noroll
+    - price_only
+  forecasting_baselines:
+    - lstm
+    - gru
+    - transformer
+    - patchtst
+    - timesfm
+    - chronos_mini
+    - kronos_mini
+  world_model_baselines:
+    - vanilla_rssm
+    - dreamer_rssm
+
+metrics:
+  forecasting:
+    - MSE@1
+    - MSE@5
+    - MSE@10
+    - MSE@20
+    - MSE@30
+    - MAE@1
+    - MAE@5
+    - MAE@10
+    - MAE@20
+    - MAE@30
+  financial_prediction:
+    - IC_mean
+    - RankIC_mean
+    - Volatility_MAE
+    - Volatility_R2
+  world_model:
+    - StateMSE@1
+    - StateMSE@5
+    - StateMSE@10
+    - StateMSE@20
+    - StateMSE@30
+  regime:
+    labels:
+      bear: "mean_return_1_to_5 <= -0.01"
+      sideway: "-0.01 < mean_return_1_to_5 < 0.01"
+      bull: "mean_return_1_to_5 >= 0.01"
+    report:
+      - Regime Accuracy
+      - Regime Macro-F1
+  counterfactual:
+    shock_feature: macro_feature_0
+    shock_scale: 0.5
+    report:
+      - mean_abs_prediction_delta
+      - direction_flip_rate
+  crisis_simulation:
+    crisis_definition: "mean_return_1_to_5 <= -0.02"
+    report:
+      - CrisisStateMSE@1
+      - CrisisStateMSE@5
+      - CrisisStateMSE@10
+      - CrisisStateMSE@20
+      - CrisisStateMSE@30
+      - n_crisis_samples
+  portfolio_diagnostic:
+    enabled_for_appendix_only: true
+    top_k: 5
+    return_clip: 0.05
+    report:
+      - Daily_Mean_Return
+      - Daily_Return_Std
+      - IR_Daily
+      - AnnRet
+
+paper_tables:
+  main:
+    - paper/tables/main_baseline_table.tex
+    - paper/tables/rollout_fidelity_table.tex
+    - paper/tables/financial_metrics_table.tex
+    - paper/tables/ablation_tables.tex
+  after_retraining:
+    - paper/tables/regime_prediction_table.tex
+    - paper/tables/counterfactual_sensitivity_table.tex
+    - paper/tables/crisis_simulation_table.tex

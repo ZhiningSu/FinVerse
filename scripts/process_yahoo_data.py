@@ -4,7 +4,6 @@ from __future__ import annotations
 import csv
 import json
 import logging
-import struct
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -14,9 +13,10 @@ import numpy as np
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 LOG = logging.getLogger(__name__)
 
-RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "yfinance"
-TICKER_CSV = Path("/Users/samli/Downloads/tickers.csv")
-OUT_DIR = Path(__file__).parent.parent / "data" / "processed"
+PROJECT_ROOT = Path(__file__).parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw" / "yfinance_hmsc"
+TICKER_CSV = PROJECT_ROOT / "data" / "tickers" / "hmsc_us_90.csv"
+OUT_DIR = PROJECT_ROOT / "data" / "processed" / "real_90"
 BIN_FILE = OUT_DIR / "prices.bin"
 STATS_FILE = OUT_DIR / "stats.json"
 
@@ -25,9 +25,9 @@ HORIZON = 30
 TOP_K_GRAPH = 5
 
 SPLITS = {
-    "train": ("2015-01-01", "2020-12-31"),
-    "validation": ("2021-01-01", "2022-12-31"),
-    "test": ("2023-01-01", "2025-05-25"),
+    "train": ("2020-01-01", "2022-12-31"),
+    "validation": ("2023-01-01", "2023-12-31"),
+    "test": ("2024-01-01", "2025-12-31"),
 }
 
 SECTOR_NEIGHBORS = {
@@ -170,7 +170,7 @@ def main():
     global SECTOR_MAP, RAW_DIR, TICKER_CSV, OUT_DIR, BIN_FILE, STATS_FILE
 
     parser = argparse.ArgumentParser(description="Process raw market data into FinWorldDataset format.")
-    parser.add_argument("--source", type=str, default="yfinance", choices=["yfinance", "eastmoney"])
+    parser.add_argument("--source", type=str, default="yfinance_hmsc", choices=["yfinance", "yfinance_hmsc", "eastmoney"])
     parser.add_argument("--ticker_file", type=Path, default=TICKER_CSV)
     parser.add_argument("--out_dir", type=Path, default=OUT_DIR)
     args = parser.parse_args()

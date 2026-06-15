@@ -1,0 +1,20 @@
+\begin{table*}[t]
+\centering
+\caption{Same-protocol ablation results for forecasting quality.}
+\label{tab:ablation_forecast}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccccc}
+\toprule
+Model & MSE@1 & MSE@5 & MSE@30 & MAE@1 & MAE@30 & IC & RankIC & Vol. MAE \\
+\midrule
+Full FinVerse & \textbf{0.0008} & 0.0044 & 0.0235 & \textbf{0.0202} & \textbf{0.1282} & -0.0659 & -0.0670 & 0.0471 \\
+w/o Dual VQ & 0.0503 & \textbf{0.0033} & \textbf{0.0231} & 0.2230 & 0.1286 & -0.1139 & -0.1366 & 0.0388 \\
+w/o Cross-Asset Ctx & 0.0011 & 0.0041 & 0.0231 & 0.0259 & 0.1284 & -0.0626 & -0.0593 & 0.0404 \\
+w/o Probabilistic WM & 0.0039 & 0.0045 & 0.0236 & 0.0585 & 0.1282 & 0.0854 & 0.0840 & \textbf{0.0296} \\
+Price Only & 0.0064 & 0.0056 & 0.0240 & 0.0762 & 0.1329 & \textbf{0.2227} & \textbf{0.2422} & 0.0470 \\
+\bottomrule
+\end{tabular}
+}
+\vspace{2pt}
+\footnotesize{All variants use the same training split, validation split, seed, return target, and 500 held-out test episodes. Lower is better for MSE, MAE, and Vol. MAE; higher is better for IC and RankIC.}
+\end{table*}

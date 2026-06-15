@@ -1,0 +1,37 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{aaai2026}[2026/06/10 Local AAAI-style compatibility package]
+
+\newif\ifaaai@submission
+\aaai@submissionfalse
+\DeclareOption{submission}{\aaai@submissiontrue}
+\DeclareOption{accepted}{\aaai@submissionfalse}
+\ProcessOptions\relax
+
+\RequirePackage[letterpaper,left=0.75in,right=0.75in,top=0.75in,bottom=1.0in]{geometry}
+\RequirePackage{times}
+\RequirePackage{helvet}
+\RequirePackage{courier}
+\RequirePackage{titlesec}
+\RequirePackage{authblk}
+\RequirePackage{fancyhdr}
+
+\setlength{\columnsep}{0.25in}
+\setlength{\parindent}{10pt}
+\setlength{\parskip}{0pt}
+\pagestyle{plain}
+
+\titleformat{\section}{\large\bfseries}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{1.0ex plus .2ex minus .2ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{0.8ex plus .2ex minus .2ex}{0.5ex}
+\titlespacing*{\subsubsection}{0pt}{0.6ex plus .2ex minus .2ex}{0.4ex}
+
+\renewcommand\Authfont{\normalsize}
+\renewcommand\Affilfont{\small}
+
+\AtBeginDocument{%
+  \twocolumn
+}
+
+\endinput

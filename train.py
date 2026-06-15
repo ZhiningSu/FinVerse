@@ -16,14 +16,16 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
 
 from datasets.finworld_dataset import FinWorldDataset, collate_fn
-from models.baselines import PriceOnlyGRU, MultiModalNoRollout, NoGraphWorldModel
+from models.baselines import DreamerStyleRSSM, PriceOnlyGRU, MultiModalNoRollout, NoGraphWorldModel
 from models.forecasting_baselines import (
+    ChronosMiniForecaster,
     DLinearForecaster,
     GRUForecaster,
     ITransformerForecaster,
     KronosMiniForecaster,
     LSTMForecaster,
     PatchTSTForecaster,
+    TimesFMStyleForecaster,
     TransformerForecaster,
 )
 from models.world_model import WorldModel
@@ -39,7 +41,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 DEFAULT_CONFIG = {
-    "data_root": "data/processed/real",
+    "data_root": "data/processed/real_90",
     "output_dir": "outputs",
     "latent_dim": 128,
     "hidden_dim": 256,
@@ -96,7 +98,8 @@ def build_parser():
         choices=[
             "full", "price_only", "multi_noroll", "no_graph",
             "lstm", "gru", "dlinear", "transformer", "patchtst", "itransformer",
-            "kronos_mini", "vanilla_rssm", "finverse",
+            "kronos_mini", "chronos_mini", "timesfm", "vanilla_rssm",
+            "dreamer_rssm", "finverse",
         ],
         help="Model family to train.")
     return parser
@@ -118,7 +121,14 @@ def set_seed(seed: int):
 
 
 def build_model(model_name: str, args, device):
-    extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": 66}
+    extra = {
+        "price_dim": 6,
+        "news_dim": 384,
+        "macro_dim": 8,
+        "graph_dim": 5,
+        "action_dim": 8,
+        "num_tickers": int(getattr(args, "num_tickers", 90)),
+    }
     if model_name in {"full", "finverse"}:
         model = WorldModel(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
         criterion = WorldModelLoss(
@@ -134,6 +144,14 @@ def build_model(model_name: str, args, device):
             use_dual_vq=False,
             **extra,
         ).to(device)
+        criterion = WorldModelLoss(
+            kl_weight=args.kl_weight,
+            recon_weight=args.recon_weight,
+            regime_weight=args.regime_weight,
+            vq_weight=0.0,
+        )
+    elif model_name == "dreamer_rssm":
+        model = DreamerStyleRSSM(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
         criterion = WorldModelLoss(
             kl_weight=args.kl_weight,
             recon_weight=args.recon_weight,
@@ -175,6 +193,12 @@ def build_model(model_name: str, args, device):
     elif model_name == "kronos_mini":
         model = KronosMiniForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
         criterion = BaselineLoss()
+    elif model_name == "chronos_mini":
+        model = ChronosMiniForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
+    elif model_name == "timesfm":
+        model = TimesFMStyleForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
+        criterion = BaselineLoss()
     else:
         raise ValueError(f"Unknown model: {model_name}")
     return model, criterion
@@ -206,6 +230,8 @@ def main():
     )
 
     LOGGER.info("Train episodes: %d | Val episodes: %d", len(train_dataset), len(val_dataset))
+    args.num_tickers = int(train_dataset.price_buffer.shape[1])
+    LOGGER.info("Detected ticker universe size: %d", args.num_tickers)
     generator = torch.Generator()
     generator.manual_seed(args.seed)
     train_loader = DataLoader(

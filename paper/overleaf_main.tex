@@ -1,0 +1,224 @@
+\documentclass[letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{multirow}
+\usepackage{url}
+
+\title{FinVerse: A Hierarchical Market-State World Model as the Cognitive Core of Financial Agents}
+\author{Anonymous Authors}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Financial decision making requires an agent to reason about a partially observed, noisy, and regime-shifting world. Rather than treating market prediction as a direct supervised forecasting problem, we study the construction of a financial world model that can serve as the cognitive core of a future autonomous financial agent. We propose FinVerse, a hierarchical market-state world model centered on a Hierarchical Market State Constructor (HMSC). FinVerse tokenizes temporal price dynamics and cross-sectional market structure through dual vector quantization, aligns continuous news, macro, and graph features into a shared representation space, and learns recurrent probabilistic latent dynamics for future market imagination. This design allows the model to ask counterfactual questions of the form: if an agent follows a candidate strategy under the current market state, how may future returns and risks change? Experiments on U.S. market data from 2020--2025 compare FinVerse with LSTM, GRU, Transformer, PatchTST, Kronos-mini, Vanilla RSSM, and BUY\&HOLD baselines. Results show that FinVerse obtains the best short-horizon forecasting error under the same evaluation protocol, while ablation studies indicate that discrete market-state tokenization, graph information, and probabilistic dynamics contribute complementary benefits. We present FinVerse as a step toward sample-efficient financial agents that improve decision quality through internal market simulation before real-world interaction.
+\end{abstract}
+
+\section{Introduction}
+Modern financial markets are difficult environments for autonomous agents. The agent observes incomplete and heterogeneous signals, including prices, volume, macro indicators, firm events, and cross-asset dependencies. These signals are non-stationary and often change meaning under different market regimes. A useful financial agent therefore requires more than a point predictor. It needs an internal model of the financial world: a compact representation of the current market state, a mechanism for imagining plausible future states, and an evaluation mechanism for comparing candidate strategies before execution.
+
+This paper focuses on this internal model. We do not attempt to build a complete end-to-end trading agent. Instead, we study the cognitive core that such an agent would rely on. The central question is: how can an agent construct a market state representation that supports forecasting, imagination, and strategy evaluation under limited real-world interaction?
+
+We propose FinVerse, a Hierarchical Market-State World Model. The core module is the Hierarchical Market State Constructor (HMSC), which maps multi-modal market observations into a unified latent state. HMSC uses dual vector-quantized tokenization to discretize temporal price patterns and cross-sectional market structure, while continuous news, macro, and graph features are projected into the same representation space. A recurrent probabilistic world model then rolls the latent state forward and predicts future return trajectories.
+
+Our contributions are threefold:
+\begin{itemize}
+    \item We formulate financial world modeling as the cognitive core of an agent, emphasizing market-state construction, imagination, and strategy evaluation rather than direct one-step prediction alone.
+    \item We introduce HMSC, a hierarchical multi-modal state constructor with dual VQ tokenization for temporal and cross-sectional market patterns.
+    \item We evaluate FinVerse against mainstream forecasting models and conduct same-protocol ablations showing how tokenization, graph structure, and probabilistic dynamics affect forecasting and portfolio diagnostics.
+\end{itemize}
+
+\section{Related Work}
+\paragraph{Financial Forecasting.}
+Financial forecasting has been studied with recurrent networks, temporal convolutional models, and Transformer-based architectures. LSTM and GRU models are widely used for sequential return prediction, while PatchTST and related time-series Transformers improve long-horizon modeling by segmenting time series into patches. These methods are strong predictive baselines, but they usually learn direct mappings from historical observations to future targets.
+
+\paragraph{World Models and Imagination.}
+World models learn latent dynamics that allow an agent to simulate future trajectories before acting. In reinforcement learning, models such as RSSM and Dreamer learn compact latent states and optimize policies through imagined rollouts. FinVerse adapts this philosophy to financial markets, where the imagined future must represent stochastic returns, cross-asset interactions, and regime-sensitive market states.
+
+\paragraph{Financial Agents.}
+Existing financial-agent systems often focus on portfolio allocation, execution, or language-driven decision making. Our goal is narrower and more foundational: we design the internal market-state world model that a later full financial agent can use for reasoning.
+
+\section{Methodology}
+\subsection{Problem Formulation}
+At each time step $t$, the agent observes a multi-modal market observation
+\begin{equation}
+    o_t = \{x_t^{p}, x_t^{n}, x_t^{m}, G_t\},
+\end{equation}
+where $x_t^{p}$ denotes historical price and volume features, $x_t^{n}$ denotes news or event-derived features, $x_t^{m}$ denotes macro features, and $G_t$ denotes the cross-asset graph. Given a candidate action or strategy descriptor $a_t$, the objective is to learn a world model that estimates future return-related outcomes:
+\begin{equation}
+    p_\theta(o_{t+1:t+H}, r_{t+1:t+H} \mid o_{\leq t}, a_{t:t+H-1}).
+\end{equation}
+
+\subsection{Hierarchical Market State Constructor}
+The HMSC maps heterogeneous observations into a shared latent market state:
+\begin{equation}
+    s_t = \phi_{\mathrm{HMSC}}(x_t^{p}, x_t^{n}, x_t^{m}, G_t).
+\end{equation}
+The design separates discrete market-state tokenization from continuous feature projection.
+
+\paragraph{Temporal Price Tokenization.}
+Given a lookback window $X_t^p \in \mathbb{R}^{L \times d_p}$, an encoder produces a temporal representation:
+\begin{equation}
+    h_t^{\mathrm{temp}} = f_{\mathrm{temp}}(X_t^p).
+\end{equation}
+A vector quantizer maps it to the nearest codebook vector:
+\begin{equation}
+    k_t^{\mathrm{temp}} = \arg\min_k \|h_t^{\mathrm{temp}} - e_k^{\mathrm{temp}}\|_2^2,
+    \quad
+    z_t^{\mathrm{temp}} = e_{k_t^{\mathrm{temp}}}^{\mathrm{temp}}.
+\end{equation}
+
+\paragraph{Cross-sectional Tokenization.}
+For the same trading day, cross-asset structure is encoded as
+\begin{equation}
+    h_t^{\mathrm{cross}} = f_{\mathrm{cross}}(X_t^p, G_t),
+\end{equation}
+and quantized by
+\begin{equation}
+    k_t^{\mathrm{cross}} = \arg\min_k \|h_t^{\mathrm{cross}} - e_k^{\mathrm{cross}}\|_2^2,
+    \quad
+    z_t^{\mathrm{cross}} = e_{k_t^{\mathrm{cross}}}^{\mathrm{cross}}.
+\end{equation}
+The VQ objective is
+\begin{equation}
+    \mathcal{L}_{\mathrm{VQ}} =
+    \| \mathrm{sg}[h_t] - z_t \|_2^2
+    + \beta \| h_t - \mathrm{sg}[z_t] \|_2^2,
+\end{equation}
+where $\mathrm{sg}[\cdot]$ denotes stop-gradient.
+
+\paragraph{Continuous Tokens and Shared Space.}
+News, macro, and graph features are projected into the same latent space:
+\begin{equation}
+    \tilde{h}_t^n = \psi_n(x_t^n), \quad
+    \tilde{h}_t^m = \psi_m(x_t^m), \quad
+    \tilde{h}_t^g = \psi_g(G_t).
+\end{equation}
+The unified market state is obtained by fusion:
+\begin{equation}
+    s_t = \phi_{\mathrm{fuse}}\left(
+    [z_t^{\mathrm{temp}}, z_t^{\mathrm{cross}}, \tilde{h}_t^n, \tilde{h}_t^m, \tilde{h}_t^g]
+    \right).
+\end{equation}
+
+\subsection{Recurrent Financial World Model}
+FinVerse learns a recurrent latent dynamics model. The posterior state is
+\begin{equation}
+    q_\phi(z_t \mid s_t) = \mathcal{N}(\mu_\phi(s_t), \sigma_\phi(s_t)),
+\end{equation}
+and the transition prior is
+\begin{equation}
+    p_\theta(z_{t+1} \mid z_t, a_t) =
+    \mathcal{N}(\mu_\theta(h_{t+1}), \sigma_\theta(h_{t+1})),
+\end{equation}
+where
+\begin{equation}
+    h_{t+1} = \mathrm{GRUCell}([z_t, a_t], h_t).
+\end{equation}
+The decoder predicts future returns:
+\begin{equation}
+    \hat{y}_{t+h} = g_\theta(z_{t+h}), \quad h=1,\ldots,H.
+\end{equation}
+
+\subsection{Strategy Imagination}
+For a candidate strategy $\pi$, the model imagines a latent rollout:
+\begin{equation}
+    z_{t+h}^{\pi} \sim p_\theta(z_{t+h} \mid z_{t+h-1}^{\pi}, a_{t+h-1}^{\pi}).
+\end{equation}
+The expected value of the strategy can be estimated by
+\begin{equation}
+    J(\pi) = \mathbb{E}\left[\sum_{h=1}^{H}\gamma^{h-1}\hat{r}_{t+h}^{\pi}\right]
+    - \lambda \widehat{\mathrm{Risk}}(\pi).
+\end{equation}
+This formulation supports the cognitive question: if the agent follows this strategy, how may its future return and risk change?
+
+\subsection{Training Objective}
+The total training loss combines prediction, dynamics regularization, and tokenization:
+\begin{equation}
+    \mathcal{L} =
+    \mathcal{L}_{\mathrm{pred}}
+    + \alpha \mathcal{L}_{\mathrm{KL}}
+    + \eta \mathcal{L}_{\mathrm{VQ}},
+\end{equation}
+where
+\begin{equation}
+    \mathcal{L}_{\mathrm{pred}} =
+    \frac{1}{H}\sum_{h=1}^{H}
+    \|\hat{y}_{t+h} - y_{t+h}\|_2^2,
+\end{equation}
+and
+\begin{equation}
+    \mathcal{L}_{\mathrm{KL}} =
+    D_{\mathrm{KL}}(q_\phi(z_t \mid s_t) \| p_\theta(z_t \mid z_{t-1}, a_{t-1})).
+\end{equation}
+
+\begin{algorithm}[t]
+\caption{FinVerse World Model Learning and Strategy Evaluation}
+\label{alg:finverse}
+\begin{algorithmic}[1]
+\STATE Observe multi-modal market input $o_t=\{x_t^p,x_t^n,x_t^m,G_t\}$.
+\STATE Construct temporal and cross-sectional VQ tokens.
+\STATE Project news, macro, and graph features into the shared latent space.
+\STATE Fuse all tokens into hierarchical market state $s_t$.
+\STATE Infer posterior latent state $z_t \sim q_\phi(z_t \mid s_t)$.
+\STATE Roll forward recurrent dynamics under candidate actions.
+\STATE Decode imagined returns and risks.
+\STATE Select or evaluate strategies according to risk-adjusted expected value.
+\end{algorithmic}
+\end{algorithm}
+
+\section{Experiments}
+\subsection{Data}
+We evaluate on U.S. market data from 2020--2025. The processed dataset contains 66 actively used assets from a larger collected universe, daily price sequences, price-derived macro proxies, event/news proxy features, and cross-asset neighborhood information. Each sample uses a 30-day lookback window and predicts future returns up to 30 days. We use chronological train, validation, and test splits.
+
+\subsection{Baselines}
+We compare FinVerse with LSTM, GRU, Transformer, PatchTST, Kronos-mini, and Vanilla RSSM. For investment diagnostics, we also include BUY\&HOLD, implemented as an equal-weight long-only market-basket strategy.
+
+\subsection{Metrics}
+Forecasting quality is measured by MSE and MAE at horizons $1,5,10,20,30$. Cross-sectional predictive quality is measured by IC and RankIC:
+\begin{equation}
+    \mathrm{IC}_h = \mathrm{corr}(\hat{y}_{t+h}, y_{t+h}),
+\end{equation}
+\begin{equation}
+    \mathrm{RankIC}_h = \mathrm{corr}(\mathrm{rank}(\hat{y}_{t+h}), \mathrm{rank}(y_{t+h})).
+\end{equation}
+Volatility quality is measured by the MAE between predicted and realized path volatility. Portfolio diagnostics use top-k long-short portfolios:
+\begin{equation}
+    R_t^{LS} = \frac{1}{k}\sum_{i \in \mathrm{TopK}(\hat{y}_t)} r_{t,i}
+    - \frac{1}{k}\sum_{j \in \mathrm{BottomK}(\hat{y}_t)} r_{t,j}.
+\end{equation}
+We report information ratio and annualized excess return:
+\begin{equation}
+    \mathrm{IR} = \frac{\mathbb{E}[R_t^{LS}]}{\mathrm{Std}(R_t^{LS})}\sqrt{252},
+    \quad
+    \mathrm{AER}=252\mathbb{E}[R_t^{LS}].
+\end{equation}
+
+\input{tables/main_baseline_table}
+\input{tables/financial_metrics_table}
+\input{tables/ablation_tables}
+
+\subsection{Main Results}
+Table~\ref{tab:main_forecasting} shows that FinVerse achieves the best one-step forecasting performance among the compared models, with MSE@1 of 0.0008 and MAE@1 of 0.0202. This result supports the role of HMSC in constructing an informative short-horizon market state. Vanilla RSSM performs competitively at several longer horizons, indicating that recurrent latent dynamics are useful, but its weak one-step error suggests that dynamics alone are insufficient without the proposed market-state constructor.
+
+Table~\ref{tab:financial_metrics} reports financial diagnostics under a top-k long-short protocol. These results should be interpreted carefully because portfolio metrics are more sensitive to ranking noise than pointwise forecasting metrics. FinVerse-Small obtains the strongest IC and RankIC among the FinVerse family and maintains positive IR and AER, while some direct forecasting baselines obtain high portfolio scores under this short diagnostic window. We therefore use these metrics as evidence of investment-relevant behavior rather than as a definitive trading-performance claim.
+
+\subsection{Ablation Study}
+Table~\ref{tab:ablation_forecast} and Table~\ref{tab:ablation_topk} evaluate the contribution of each module. Removing Dual VQ severely increases one-step forecasting error, suggesting that discrete temporal and cross-sectional market tokens are important for immediate state construction. Removing graph information keeps pointwise forecasting close but produces negative top-k portfolio performance, indicating that cross-asset relations matter for selection behavior. Removing probabilistic world-model dynamics also leads to negative portfolio diagnostics, supporting the importance of imagined latent transitions. BUY\&HOLD has negative IR and AER in the same test period, showing that the diagnostic period is not trivially favorable to long-only exposure.
+
+\section{Limitations}
+This paper studies the world-model component of a financial agent, not a complete autonomous trading system. The current experiments use a short training protocol for fast comparison, and portfolio metrics are noisy under limited test windows. News features are currently represented by public event proxies rather than full-scale professional news embeddings. Future work should extend the dataset, conduct multi-seed and multi-market evaluation, and integrate a full actor-critic policy trained in imagined market rollouts.
+
+\section{Conclusion}
+We introduced FinVerse, a hierarchical market-state world model designed as the cognitive core of financial agents. By combining dual VQ tokenization, multi-modal state fusion, graph-aware market structure, and recurrent probabilistic dynamics, FinVerse enables an agent to encode the current market, imagine future trajectories, and evaluate candidate strategies internally. Experiments show strong short-horizon forecasting performance and provide ablation evidence for the complementary roles of tokenization, graph structure, and probabilistic dynamics. FinVerse provides a foundation for future financial agents that learn more efficiently by thinking through simulated market futures before acting in the real world.
+
+\end{document}

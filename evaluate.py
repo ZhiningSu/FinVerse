@@ -14,14 +14,16 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from datasets.finworld_dataset import FinWorldDataset, collate_fn
-from models.baselines import MultiModalNoRollout, NoGraphWorldModel, PriceOnlyGRU
+from models.baselines import DreamerStyleRSSM, MultiModalNoRollout, NoGraphWorldModel, PriceOnlyGRU
 from models.forecasting_baselines import (
+    ChronosMiniForecaster,
     DLinearForecaster,
     GRUForecaster,
     ITransformerForecaster,
     KronosMiniForecaster,
     LSTMForecaster,
     PatchTSTForecaster,
+    TimesFMStyleForecaster,
     TransformerForecaster,
 )
 from models.world_model import WorldModel
@@ -45,7 +47,10 @@ MODEL_REGISTRY = {
     "patchtst": PatchTSTForecaster,
     "itransformer": ITransformerForecaster,
     "kronos_mini": KronosMiniForecaster,
+    "chronos_mini": ChronosMiniForecaster,
+    "timesfm": TimesFMStyleForecaster,
     "vanilla_rssm": WorldModel,
+    "dreamer_rssm": DreamerStyleRSSM,
     "finverse": WorldModel,
 }
 
@@ -58,16 +63,18 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
-def load_model(checkpoint_path: str, model_name: str, device: torch.device, hidden_dim=256, latent_dim=128):
+def load_model(checkpoint_path: str, model_name: str, device: torch.device, hidden_dim=256, latent_dim=128, num_tickers=90):
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
     model_cls = MODEL_REGISTRY[model_name]
 
-    extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": 66}
+    extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": num_tickers}
 
-    if model_name in {"price_only", "lstm", "gru", "dlinear", "transformer", "patchtst", "itransformer", "kronos_mini"}:
+    if model_name in {"price_only", "lstm", "gru", "dlinear", "transformer", "patchtst", "itransformer", "kronos_mini", "chronos_mini", "timesfm"}:
         model = model_cls(price_dim=6, hidden_dim=hidden_dim, output_dim=6, num_steps=30).to(device)
     elif model_name == "vanilla_rssm":
         model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, use_dual_vq=False, **extra).to(device)
+    elif model_name == "dreamer_rssm":
+        model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, **extra).to(device)
     else:
         model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, **extra).to(device)
 
@@ -178,14 +185,29 @@ def _buy_and_hold_returns(
     return np.asarray(daily_returns, dtype=float)
 
 
-def _annualized_metrics(daily_returns: np.ndarray) -> tuple[float, float]:
+def _portfolio_metrics(daily_returns: np.ndarray) -> dict:
     if daily_returns.size == 0:
-        return 0.0, 0.0
+        return {
+            "Daily_Mean_Return": 0.0,
+            "Daily_Return_Std": 0.0,
+            "IR_Daily": 0.0,
+            "IR": 0.0,
+            "IR_Annualized": 0.0,
+            "AER": 0.0,
+        }
     daily_mean = float(daily_returns.mean())
     daily_std = float(daily_returns.std())
-    ir = 0.0 if np.isclose(daily_std, 0.0) else float(daily_mean / daily_std * np.sqrt(252.0))
+    ir_daily = 0.0 if np.isclose(daily_std, 0.0) else float(daily_mean / daily_std)
+    ir_annualized = float(ir_daily * np.sqrt(252.0))
     aer = float(daily_mean * 252.0)
-    return ir, aer
+    return {
+        "Daily_Mean_Return": daily_mean,
+        "Daily_Return_Std": daily_std,
+        "IR_Daily": ir_daily,
+        "IR": ir_annualized,
+        "IR_Annualized": ir_annualized,
+        "AER": aer,
+    }
 
 
 @torch.no_grad()
@@ -210,7 +232,7 @@ def evaluate_buy_and_hold(
         date_array,
         return_clip=portfolio_return_clip,
     )
-    ir, aer = _annualized_metrics(strategy_returns)
+    portfolio_metrics = _portfolio_metrics(strategy_returns)
     return {
         "MSE@1": None,
         "MSE@5": None,
@@ -239,8 +261,7 @@ def evaluate_buy_and_hold(
         "Portfolio_TopK": "equal_weight_long",
         "Portfolio_Return_Clip": portfolio_return_clip,
         "Portfolio_Days": int(strategy_returns.size),
-        "IR": ir,
-        "AER": aer,
+        **portfolio_metrics,
         "n_samples": int(target_array.size),
     }
 
@@ -327,7 +348,7 @@ def evaluate_model(
         top_k=portfolio_top_k,
         return_clip=portfolio_return_clip,
     )
-    ir, aer = _annualized_metrics(strategy_returns)
+    portfolio_metrics = _portfolio_metrics(strategy_returns)
 
     return {
         "MSE@1": float(np.mean(mse_1)),
@@ -357,14 +378,13 @@ def evaluate_model(
         "Portfolio_TopK": int(portfolio_top_k),
         "Portfolio_Return_Clip": portfolio_return_clip,
         "Portfolio_Days": int(strategy_returns.size),
-        "IR": ir,
-        "AER": aer,
+        **portfolio_metrics,
         "n_samples": len(mse_1),
     }
 
 
 def print_table(results: dict):
-    header = f"{'Model':<20} | {'MSE@1':>8} | {'MSE@5':>8} | {'IC':>8} | {'RankIC':>8} | {'VolMAE':>8} | {'IR':>8} | {'AER':>8}"
+    header = f"{'Model':<20} | {'MSE@1':>8} | {'MSE@5':>8} | {'IC':>8} | {'RankIC':>8} | {'VolMAE':>8} | {'DMean':>8} | {'DStd':>8} | {'DIR':>8} | {'AnnIR':>8} | {'AER':>8}"
     sep = "-" * len(header)
 
     def cell(value):
@@ -376,14 +396,16 @@ def print_table(results: dict):
         print(
             f"{name:<20} | {cell(m['MSE@1'])} | {cell(m['MSE@5'])} | "
             f"{cell(m['IC_mean'])} | {cell(m['RankIC_mean'])} | "
-            f"{cell(m['Volatility_MAE'])} | {cell(m['IR'])} | {cell(m['AER'])}"
+            f"{cell(m['Volatility_MAE'])} | {cell(m.get('Daily_Mean_Return'))} | "
+            f"{cell(m.get('Daily_Return_Std'))} | {cell(m.get('IR_Daily'))} | "
+            f"{cell(m.get('IR_Annualized', m.get('IR')))} | {cell(m['AER'])}"
         )
     print(sep)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate FinWorld experiments")
-    parser.add_argument("--data-root", default="data/processed/real")
+    parser.add_argument("--data-root", default="data/processed/real_90")
     parser.add_argument("--split", default="test")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -411,6 +433,7 @@ def main():
     )
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collate_fn)
     LOGGER.info("Test set: %d episodes", len(dataset))
+    num_tickers = int(getattr(dataset, "price_buffer").shape[1])
 
     results = {}
     device = torch.device(args.device)
@@ -419,7 +442,7 @@ def main():
         for spec in args.checkpoints:
             name, path = spec.split(":", 1)
             LOGGER.info("Loading checkpoint: %s from %s", name, path)
-            model = load_model(path, _name_to_key(name), device, args.hidden_dim, args.latent_dim)
+            model = load_model(path, _name_to_key(name), device, args.hidden_dim, args.latent_dim, num_tickers=num_tickers)
             results[name] = evaluate_model(
                 model,
                 loader,
@@ -438,7 +461,7 @@ def main():
                 ckpt_path = ckpt_dir / ckpt_file
                 if ckpt_path.exists():
                     LOGGER.info("Loading %s from %s", model_name, ckpt_path)
-                    model = load_model(str(ckpt_path), model_name, device, args.hidden_dim, args.latent_dim)
+                    model = load_model(str(ckpt_path), model_name, device, args.hidden_dim, args.latent_dim, num_tickers=num_tickers)
                     display_name = {
                         "full": "FinWorldModel",
                         "price_only": "PriceOnlyGRU",
@@ -484,6 +507,7 @@ def _name_to_key(name: str) -> str:
         "NoGraph": "no_graph",
         "NoGraphWorldModel": "no_graph",
         "w/o Graph": "no_graph",
+        "w/o Cross-Asset Ctx": "no_graph",
         "w/o Dual VQ": "vanilla_rssm",
         "w/o Probabilistic WM": "multi_noroll",
         "Price Only": "price_only",
@@ -494,8 +518,14 @@ def _name_to_key(name: str) -> str:
         "PatchTST": "patchtst",
         "Kronos-mini": "kronos_mini",
         "KronosMini": "kronos_mini",
+        "Chronos-mini": "chronos_mini",
+        "ChronosMini": "chronos_mini",
+        "TimesFM": "timesfm",
+        "TimesFM-style": "timesfm",
         "Vanilla RSSM": "vanilla_rssm",
         "VanillaRSSM": "vanilla_rssm",
+        "Dreamer-style RSSM": "dreamer_rssm",
+        "DreamerRSSM": "dreamer_rssm",
         "FinVerse": "finverse",
         "Full FinVerse": "finverse",
         "iTransformer": "itransformer",

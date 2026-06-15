@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\caption{Financial prediction diagnostics on 100 complete test trading days. We report forecasting error, cross-sectional IC/RankIC, and volatility error, and exclude portfolio PnL from the main table because short-window daily portfolio returns are highly sensitive to ranking noise and annualization choices.}
+\label{tab:financial_metrics}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+Model & MSE@1 & MSE@30 & IC & RankIC & Vol. MAE \\
+\midrule
+LSTM & \textbf{0.0442} & 0.0662 & -0.0083 & -0.0219 & 0.0284 \\
+PatchTST & 0.0802 & 0.1395 & 0.0481 & 0.0195 & 0.1303 \\
+Kronos-mini & 0.0972 & 0.1545 & 0.0580 & 0.0406 & 0.1316 \\
+Vanilla RSSM & 0.0694 & 0.0662 & -0.0046 & 0.0104 & 0.0550 \\
+FinVerse-Small & 0.0451 & 0.0646 & \textbf{0.0587} & \textbf{0.0657} & 0.0336 \\
+FinVerse-Medium & 0.0459 & 0.0660 & 0.0226 & 0.0249 & 0.0387 \\
+FinVerse-Large & 0.0458 & 0.0656 & -0.0846 & -0.0502 & 0.0397 \\
+GRU & 0.0457 & \textbf{0.0622} & -0.1674 & -0.0800 & \textbf{0.0276} \\
+Transformer & 0.0544 & 0.0971 & 0.0298 & 0.0512 & 0.0958 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}

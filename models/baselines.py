@@ -322,3 +322,118 @@ class NoGraphWorldModel(nn.Module):
             "regime_logits": regime_logits,
             "loss": loss,
         }
+
+
+class DreamerStyleRSSM(nn.Module):
+    """
+    Dreamer-style RSSM baseline trained from scratch.
+
+    The baseline keeps a deterministic recurrent state and stochastic latent
+    posterior/prior, but uses a compact price-only encoder so that it serves as a
+    clean world-model baseline rather than another HMSC variant.
+    """
+
+    def __init__(
+        self,
+        price_dim: int = 6,
+        news_dim: int = 384,
+        macro_dim: int = 8,
+        graph_dim: int = 5,
+        action_dim: int = 8,
+        latent_dim: int = 128,
+        hidden_dim: int = 256,
+        num_tickers: int = 66,
+        num_steps: int = 30,
+    ):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.hidden_dim = hidden_dim
+        self.num_steps = num_steps
+        self.price_encoder = nn.GRU(price_dim, hidden_dim, batch_first=True, num_layers=2, dropout=0.1)
+        self.posterior = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, latent_dim * 2),
+        )
+        self.rssm = nn.GRUCell(latent_dim + action_dim, hidden_dim)
+        self.prior = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, latent_dim * 2),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(hidden_dim + latent_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )
+        self.return_head = nn.Sequential(
+            nn.Linear(hidden_dim + latent_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim // 2, num_tickers),
+        )
+        self.regime_head = nn.Sequential(
+            nn.Linear(hidden_dim + latent_dim, hidden_dim // 4),
+            nn.GELU(),
+            nn.Linear(hidden_dim // 4, 4),
+        )
+
+    def reparameterize(self, mu, logvar):
+        if self.training:
+            std = (0.5 * logvar).exp()
+            return mu + torch.randn_like(std) * std
+        return mu
+
+    def kl_divergence(self, q_mu, q_logvar, p_mu, p_logvar):
+        p_var = p_logvar.exp()
+        q_var = q_logvar.exp()
+        kl = (q_var + (q_mu - p_mu) ** 2) / (p_var + 1e-8) + p_logvar - q_logvar - 1
+        return 0.5 * kl.sum(dim=-1)
+
+    def forward(self, price_seq, news_feat=None, macro_feat=None, edge_index=None, edge_weight=None, action=None, price_target=None):
+        _, h_seq = self.price_encoder(price_seq)
+        h_det = h_seq[-1]
+        q_stats = self.posterior(h_det)
+        q_mu, q_logvar = q_stats[:, : self.latent_dim], q_stats[:, self.latent_dim :]
+        z = self.reparameterize(q_mu, q_logvar)
+        actions = action
+        if actions is None:
+            actions = torch.zeros(price_seq.size(0), 8, device=price_seq.device, dtype=price_seq.dtype)
+        prior_stats = self.prior(h_det)
+        p_mu, p_logvar = prior_stats[:, : self.latent_dim], prior_stats[:, self.latent_dim :]
+        kl = self.kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
+
+        preds = []
+        states = []
+        h = h_det
+        z_t = z
+        for _ in range(self.num_steps):
+            h = self.rssm(torch.cat([z_t, actions], dim=-1), h)
+            prior_stats = self.prior(h)
+            p_mu = prior_stats[:, : self.latent_dim]
+            p_logvar = prior_stats[:, self.latent_dim :]
+            z_t = self.reparameterize(p_mu, p_logvar)
+            state = torch.cat([h, z_t], dim=-1)
+            states.append(state)
+            preds.append(self.decoder(state).squeeze(-1))
+        state_path = torch.stack(states, dim=1)
+        price_pred = torch.stack(preds, dim=1)
+        return_pred = self.return_head(state_path[:, -1])
+        regime_logits = self.regime_head(state_path[:, -1])
+
+        loss = torch.tensor(0.0, device=price_seq.device)
+        if price_target is not None and price_target.numel() > 0:
+            target = price_target[:, :, 0] if price_target.dim() == 3 else price_target
+            loss = F.mse_loss(price_pred, target)
+        return {
+            "z": z,
+            "prior_h": h_det,
+            "kl": kl,
+            "price_pred": price_pred,
+            "return_pred": return_pred,
+            "regime_logits": regime_logits,
+            "loss": loss,
+            "vq_loss": torch.tensor(0.0, device=price_seq.device),
+        }

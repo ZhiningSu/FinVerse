@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\caption{Regime prediction diagnostics for supervised bull/sideway/bear labels. Higher is better.}
+\label{tab:regime_prediction}
+\begin{tabular}{lcc}
+\toprule
+Model & Regime Acc. & Macro-F1 \\
+\midrule
+Full FinVerse & \textbf{0.3850} & \textbf{0.1853} \\
+w/o Dual VQ & \textbf{0.3850} & \textbf{0.1853} \\
+w/o Cross-Asset Ctx & \textbf{0.3850} & \textbf{0.1853} \\
+w/o Probabilistic WM & 0.2550 & 0.1355 \\
+Price Only & 0.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}

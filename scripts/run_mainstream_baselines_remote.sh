@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PY=${PY:-/home/wjt/anaconda3/envs/sft/bin/python}
-DATA_ROOT=${DATA_ROOT:-data/processed/real}
+DATA_ROOT=${DATA_ROOT:-data/processed/real_90}
 OUTPUT_DIR=${OUTPUT_DIR:-outputs/mainstream_baselines_remote}
 DEVICE=${DEVICE:-cuda}
 HIDDEN_DIM=${HIDDEN_DIM:-128}
@@ -11,7 +11,7 @@ TRAIN_EPISODES=${TRAIN_EPISODES:-1000}
 VAL_EPISODES=${VAL_EPISODES:-300}
 TEST_EPISODES=${TEST_EPISODES:-500}
 BATCH_SIZE=${BATCH_SIZE:-128}
-MODELS=${MODELS:-"lstm patchtst kronos_mini vanilla_rssm finverse gru transformer"}
+MODELS=${MODELS:-"lstm patchtst timesfm chronos_mini kronos_mini vanilla_rssm dreamer_rssm finverse gru transformer"}
 TARGET_MODE=${TARGET_MODE:-return}
 KL_WEIGHT=${KL_WEIGHT:-0.001}
 VQ_WEIGHT=${VQ_WEIGHT:-0.001}
@@ -59,8 +59,11 @@ echo "===== Evaluating ====="
   --checkpoints \
     LSTM:${OUTPUT_DIR}/lstm/best_checkpoint.pt \
     PatchTST:${OUTPUT_DIR}/patchtst/best_checkpoint.pt \
+    TimesFM:${OUTPUT_DIR}/timesfm/best_checkpoint.pt \
+    Chronos-mini:${OUTPUT_DIR}/chronos_mini/best_checkpoint.pt \
     Kronos-mini:${OUTPUT_DIR}/kronos_mini/best_checkpoint.pt \
     "Vanilla RSSM:${OUTPUT_DIR}/vanilla_rssm/best_checkpoint.pt" \
+    "Dreamer-style RSSM:${OUTPUT_DIR}/dreamer_rssm/best_checkpoint.pt" \
     FinVerse:${OUTPUT_DIR}/finverse/best_checkpoint.pt \
     GRU:${OUTPUT_DIR}/gru/best_checkpoint.pt \
     Transformer:${OUTPUT_DIR}/transformer/best_checkpoint.pt

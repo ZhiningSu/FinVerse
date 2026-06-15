@@ -1,0 +1,18 @@
+\begin{table*}[t]
+\centering
+\caption{Crisis-window simulation diagnostics. Crisis windows are selected by realized short-horizon market stress, and lower CrisisStateMSE indicates better imagined trajectory fidelity under stress.}
+\label{tab:crisis_simulation}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+Model & CrisisStateMSE@1 & CrisisStateMSE@5 & CrisisStateMSE@10 & CrisisStateMSE@20 & CrisisStateMSE@30 & Crisis N \\
+\midrule
+Full FinVerse & 0.0006 & 0.0041 & 0.0046 & 0.0062 & 0.0084 & 148 \\
+w/o Dual VQ & 0.0004 & 0.0044 & 0.0047 & \textbf{0.0060} & \textbf{0.0078} & 148 \\
+w/o Cross-Asset Ctx & \textbf{0.0004} & 0.0045 & 0.0051 & 0.0060 & 0.0083 & 148 \\
+w/o Probabilistic WM & 0.0008 & \textbf{0.0036} & 0.0046 & 0.0062 & 0.0081 & 148 \\
+Price Only & 0.0018 & 0.0044 & \textbf{0.0040} & 0.0066 & 0.0084 & 148 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}

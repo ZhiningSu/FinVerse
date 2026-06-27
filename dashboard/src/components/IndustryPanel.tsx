@@ -38,6 +38,34 @@ const RATIONALE_ZH: Record<string, string> = {
   "balanced news, macro, return, and risk signals": "新闻、宏观、收益和风险信号较均衡",
 };
 
+const SECTOR_LABELS: Record<string, { en: string; zh: string }> = {
+  Technology: { en: "Technology", zh: "科技" },
+  "Communication Services": { en: "Communication Services", zh: "通信服务" },
+  "Consumer Discretionary": { en: "Consumer Discretionary", zh: "可选消费" },
+  "Consumer Staples": { en: "Consumer Staples", zh: "必选消费" },
+  Financials: { en: "Financials", zh: "金融" },
+  Healthcare: { en: "Healthcare", zh: "医药" },
+  Energy: { en: "Energy", zh: "能源" },
+  Industrials: { en: "Industrials", zh: "工业" },
+  Utilities: { en: "Utilities", zh: "公用事业" },
+  Materials: { en: "Materials", zh: "材料" },
+  "Real Estate": { en: "Real Estate", zh: "地产" },
+  "Market ETF": { en: "Market ETF", zh: "宽基ETF" },
+  "Sector ETF": { en: "Sector ETF", zh: "行业ETF" },
+  科技: { en: "Technology", zh: "科技" },
+  通信: { en: "Communication Services", zh: "通信" },
+  消费: { en: "Consumer", zh: "消费" },
+  金融: { en: "Financials", zh: "金融" },
+  医药: { en: "Healthcare", zh: "医药" },
+  能源: { en: "Energy", zh: "能源" },
+  新能源: { en: "New Energy", zh: "新能源" },
+  公用事业: { en: "Utilities", zh: "公用事业" },
+  地产: { en: "Real Estate", zh: "地产" },
+  工业: { en: "Industrials", zh: "工业" },
+  宽基ETF: { en: "Market ETF", zh: "宽基ETF" },
+  行业ETF: { en: "Sector ETF", zh: "行业ETF" },
+};
+
 function fmtPct(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -49,6 +77,10 @@ function fmtNews(value: number) {
 
 function reasonLabel(reason: string, language: Language) {
   return language === "zh" ? RATIONALE_ZH[reason] ?? reason : reason;
+}
+
+function sectorLabel(sector: string, language: Language) {
+  return SECTOR_LABELS[sector]?.[language] ?? sector;
 }
 
 export function IndustryPanel({ industries, language }: IndustryPanelProps) {
@@ -71,7 +103,7 @@ export function IndustryPanel({ industries, language }: IndustryPanelProps) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs text-slate-500">#{industry.rank}</p>
-                  <h3 className="mt-1 text-lg font-semibold text-white">{industry.sector}</h3>
+                  <h3 className="mt-1 text-lg font-semibold text-white">{sectorLabel(industry.sector, language)}</h3>
                 </div>
                 <span className="rounded-full bg-cyan-300/10 px-2.5 py-1 text-xs text-cyan-100">
                   {copy.score} {industry.score.toFixed(3)}

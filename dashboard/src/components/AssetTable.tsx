@@ -28,7 +28,7 @@ const COPY = {
   },
   zh: {
     eyebrow: "Top-20 资产池",
-    title: "今日 Top 20 中国股票 / 基金推荐",
+    title: "今日 Top 20 股票 / 基金推荐",
     helper: "点击代码查看 rollout 详情",
     rank: "排名",
     ticker: "代码",
@@ -54,9 +54,42 @@ const REASON_ZH: Record<string, string> = {
   "balanced score": "收益与风险综合评分均衡",
 };
 
+const SECTOR_LABELS: Record<string, { en: string; zh: string }> = {
+  Technology: { en: "Technology", zh: "科技" },
+  "Communication Services": { en: "Communication Services", zh: "通信服务" },
+  "Consumer Discretionary": { en: "Consumer Discretionary", zh: "可选消费" },
+  "Consumer Staples": { en: "Consumer Staples", zh: "必选消费" },
+  Financials: { en: "Financials", zh: "金融" },
+  Healthcare: { en: "Healthcare", zh: "医药" },
+  Energy: { en: "Energy", zh: "能源" },
+  Industrials: { en: "Industrials", zh: "工业" },
+  Utilities: { en: "Utilities", zh: "公用事业" },
+  Materials: { en: "Materials", zh: "材料" },
+  "Real Estate": { en: "Real Estate", zh: "地产" },
+  "Market ETF": { en: "Market ETF", zh: "宽基ETF" },
+  "Sector ETF": { en: "Sector ETF", zh: "行业ETF" },
+  科技: { en: "Technology", zh: "科技" },
+  通信: { en: "Communication Services", zh: "通信" },
+  消费: { en: "Consumer", zh: "消费" },
+  金融: { en: "Financials", zh: "金融" },
+  医药: { en: "Healthcare", zh: "医药" },
+  能源: { en: "Energy", zh: "能源" },
+  新能源: { en: "New Energy", zh: "新能源" },
+  公用事业: { en: "Utilities", zh: "公用事业" },
+  材料: { en: "Materials", zh: "材料" },
+  地产: { en: "Real Estate", zh: "地产" },
+  工业: { en: "Industrials", zh: "工业" },
+  宽基ETF: { en: "Market ETF", zh: "宽基ETF" },
+  行业ETF: { en: "Sector ETF", zh: "行业ETF" },
+};
+
 function reasonLabel(reason: string | undefined, language: Language, fallback: string) {
   if (!reason) return fallback;
   return language === "zh" ? REASON_ZH[reason] ?? reason : reason;
+}
+
+function sectorLabel(sector: string, language: Language) {
+  return SECTOR_LABELS[sector]?.[language] ?? sector;
 }
 
 function typeLabel(type: AssetRecommendation["type"], language: Language) {
@@ -110,7 +143,7 @@ export function AssetTable({ assets, onSelect, language, selectedTicker }: Asset
                   <td className="max-w-[9rem] px-4 py-4 text-slate-200">
                     <span className="line-clamp-2">{asset.name}</span>
                   </td>
-                  <td className="px-4 py-4 text-slate-300">{asset.sector}</td>
+                  <td className="px-4 py-4 text-slate-300">{sectorLabel(asset.sector, language)}</td>
                   <td className="px-4 py-4 text-white">{asset.score.toFixed(3)}</td>
                   <td className="px-4 py-4 text-teal-200">{fmtPct(asset.expected_return_30d)}</td>
                   <td className="px-4 py-4 text-amber-100">{fmtPct(asset.predicted_volatility)}</td>

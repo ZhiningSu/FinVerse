@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, BrainCircuit, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
 import { AssetTable } from "@/components/AssetTable";
 import { IndustryPanel } from "@/components/IndustryPanel";
 import { MetricCard } from "@/components/MetricCard";
@@ -11,8 +10,8 @@ import { getAssetDetail, getLatestRecommendation, getPipelineStatus, runPipeline
 import type { AssetDetail, Language, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
 
 type HomeProps = {
-  initialMarket: Market;
-  language: Language;
+  initialMarket?: Market;
+  initialLanguage?: Language;
 };
 
 const COPY = {
@@ -21,10 +20,14 @@ const COPY = {
     loadError: "Unable to load the latest dashboard data. Please run the pipeline again.",
     eyebrow: "FinVerse live agent tool",
     title: "FinVerse Market Intelligence",
-    description: "Daily US market state, strategy style, and stock / ETF recommendations. This is a decision-support dashboard, not an automated trading system.",
-    versionPill: "English version · U.S. stocks / ETFs",
-    zhSwitch: "中文版 · 中国市场",
-    enSwitch: "English · US Market",
+    description: "Daily market state, strategy style, and stock / ETF recommendations across U.S. and China markets. This is a decision-support dashboard, not an automated trading system.",
+    github: "GitHub Repository",
+    language: "Language",
+    market: "Market",
+    english: "English",
+    chinese: "中文",
+    usMarket: "U.S. Market",
+    cnMarket: "China Market",
     refresh: "Run today's pipeline",
     tradeDate: "Trade Date",
     strategy: "Strategy",
@@ -46,10 +49,14 @@ const COPY = {
     loadError: "无法加载最新 dashboard 数据，请重新运行 pipeline。",
     eyebrow: "FinVerse 动态金融 Agent",
     title: "FinVerse Market Intelligence",
-    description: "每日更新中国市场状态、策略风格和股票 / 基金推荐。当前阶段是 decision-support dashboard，不是自动交易系统。",
-    versionPill: "中文版 · 中国股票 / ETF 市场",
-    zhSwitch: "中文版 · 中国市场",
-    enSwitch: "English · US Market",
+    description: "每日更新中美市场状态、策略风格和股票 / 基金推荐。当前阶段是 decision-support dashboard，不是自动交易系统。",
+    github: "GitHub 项目链接",
+    language: "语言",
+    market: "市场",
+    english: "English",
+    chinese: "中文",
+    usMarket: "美国市场",
+    cnMarket: "中国市场",
     refresh: "手动刷新 pipeline",
     tradeDate: "交易日期",
     strategy: "策略",
@@ -114,14 +121,16 @@ function displayReason(reason: string, language: Language) {
   return language === "zh" ? REASON_ZH[reason] ?? reason : reason;
 }
 
-export default function Home({ initialMarket, language }: HomeProps) {
+export default function Home({ initialMarket = "us", initialLanguage = "en" }: HomeProps) {
+  const [language, setLanguage] = useState<Language>(initialLanguage);
+  const [marketId, setMarketId] = useState<Market>(initialMarket);
   const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
   const [pipeline, setPipeline] = useState<PipelineStatus | null>(null);
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const marketId = initialMarket;
   const copy = COPY[language];
+  const activeMarketLabel = marketId === "us" ? copy.usMarket : copy.cnMarket;
 
   const refresh = useCallback(async (preferredTicker?: string) => {
     setLoading(true);
@@ -157,10 +166,10 @@ export default function Home({ initialMarket, language }: HomeProps) {
     setPipeline(null);
     setAsset(null);
     refresh().catch((err) => {
-      setError(err instanceof Error ? err.message : copy.loadError);
+      setError(err instanceof Error ? err.message : COPY.en.loadError);
       setLoading(false);
     });
-  }, [copy.loadError, refresh]);
+  }, [refresh]);
 
   if (loading || !recommendation || !pipeline) {
     return <div className="min-h-screen bg-[#08111F] p-10 text-slate-300">{error ?? copy.loading}</div>;
@@ -176,36 +185,60 @@ export default function Home({ initialMarket, language }: HomeProps) {
     <main className="min-h-screen overflow-hidden bg-[#08111F] text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(45,226,197,0.18),transparent_28%),radial-gradient(circle_at_85%_15%,rgba(255,184,77,0.12),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.05),transparent_35%)]" />
       <div className="relative mx-auto max-w-7xl px-6 py-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
-          <div>
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-cyan-200">
+        <header className="border-b border-white/10 pb-8 text-center">
+          <div className="mx-auto flex max-w-4xl flex-col items-center">
+            <p className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.35em] text-cyan-200">
               <BrainCircuit className="h-4 w-4" />
               {copy.eyebrow}
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-6xl">
               {copy.title}
             </h1>
+            <a
+              href="https://github.com/ZhiningSu/FinVerse"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 text-sm font-medium text-cyan-200 underline-offset-4 transition hover:text-cyan-100 hover:underline"
+            >
+              {copy.github}: github.com/ZhiningSu/FinVerse
+            </a>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
               {copy.description}
             </p>
             <div className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-cyan-100">
-              {copy.versionPill}
+              {activeMarketLabel} · {copy[language === "en" ? "english" : "chinese"]}
             </div>
           </div>
-          <div className="flex flex-wrap justify-end gap-3">
-            <div className="flex rounded-full border border-white/10 bg-slate-950/70 p-1 text-sm">
-              <Link
-                to="/zh"
-                className={`rounded-full px-4 py-2 transition ${language === "zh" ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
-              >
-                {COPY.zh.zhSwitch}
-              </Link>
-              <Link
-                to="/en"
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 p-1 text-sm">
+              <span className="pl-3 text-xs text-slate-500">{copy.language}</span>
+              <button
+                onClick={() => setLanguage("en")}
                 className={`rounded-full px-4 py-2 transition ${language === "en" ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
               >
-                {COPY.en.enSwitch}
-              </Link>
+                {copy.english}
+              </button>
+              <button
+                onClick={() => setLanguage("zh")}
+                className={`rounded-full px-4 py-2 transition ${language === "zh" ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
+              >
+                {copy.chinese}
+              </button>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 p-1 text-sm">
+              <span className="pl-3 text-xs text-slate-500">{copy.market}</span>
+              <button
+                onClick={() => setMarketId("us")}
+                className={`rounded-full px-4 py-2 transition ${marketId === "us" ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
+              >
+                {copy.usMarket}
+              </button>
+              <button
+                onClick={() => setMarketId("cn")}
+                className={`rounded-full px-4 py-2 transition ${marketId === "cn" ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
+              >
+                {copy.cnMarket}
+              </button>
             </div>
             <button
               onClick={triggerRun}

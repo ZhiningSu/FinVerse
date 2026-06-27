@@ -47,8 +47,8 @@ jobs:
       - name: Generate daily market snapshots
         working-directory: .
         run: |
-          python scripts/run_live_pipeline.py --market us --top-k 12 --force-fetch
-          python scripts/run_live_pipeline.py --market cn --top-k 12 --force-fetch
+          python scripts/run_live_pipeline.py --market us --top-k 20 --force-fetch
+          python scripts/run_live_pipeline.py --market cn --top-k 20 --force-fetch
           mkdir -p dashboard/public/data/us dashboard/public/data/cn
           cp outputs/live/us/latest.json dashboard/public/data/us/latest.json
           cp outputs/live/cn/latest.json dashboard/public/data/cn/latest.json

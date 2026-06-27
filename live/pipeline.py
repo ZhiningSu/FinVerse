@@ -39,7 +39,7 @@ class LivePipelineConfig:
     raw_dir: Path = DEFAULT_RAW_DIR
     data_live_dir: Path = DEFAULT_DATA_LIVE_DIR
     output_dir: Path = DEFAULT_LIVE_DIR
-    top_k: int = 12
+    top_k: int = 20
     mode: str = "heuristic_adapter"
     model_checkpoint: str = "outputs/paper_experiments/finverse/best_checkpoint.pt"
     fetch_online: bool = False

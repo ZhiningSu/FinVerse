@@ -244,27 +244,34 @@ export default function Home({ initialMarket, language }: HomeProps) {
           <RegimeGauge probs={market.regime_probs} language={language} />
         </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.5fr_0.8fr]">
-          <AssetTable assets={recommendation.top_assets} onSelect={selectAsset} language={language} />
-          <PipelinePanel stages={pipeline.stages} language={language} />
+        <section className="mt-6 grid items-start gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+          <AssetTable
+            assets={recommendation.top_assets}
+            onSelect={selectAsset}
+            language={language}
+            selectedTicker={asset?.ticker}
+          />
+          <aside className="space-y-6 xl:sticky xl:top-6">
+            <RolloutChart asset={asset} language={language} />
+            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 text-teal-200" />
+                <h2 className="text-xl font-semibold text-white">{copy.riskTitle}</h2>
+              </div>
+              <div className="mt-5 space-y-3 text-sm text-slate-300">
+                {explanations.map((item) => (
+                  <p key={item} className="rounded-2xl bg-slate-950/60 p-3">{item}</p>
+                ))}
+                <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-amber-100">
+                  {copy.disclaimer}
+                </p>
+              </div>
+            </div>
+          </aside>
         </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <RolloutChart asset={asset} language={language} />
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="h-5 w-5 text-teal-200" />
-              <h2 className="text-xl font-semibold text-white">{copy.riskTitle}</h2>
-            </div>
-            <div className="mt-5 space-y-3 text-sm text-slate-300">
-              {explanations.map((item) => (
-                <p key={item} className="rounded-2xl bg-slate-950/60 p-3">{item}</p>
-              ))}
-              <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-amber-100">
-                {copy.disclaimer}
-              </p>
-            </div>
-          </div>
+        <section className="mt-6">
+          <PipelinePanel stages={pipeline.stages} language={language} />
         </section>
 
         <footer className="mt-10 flex items-center gap-2 border-t border-white/10 py-6 text-xs text-slate-500">

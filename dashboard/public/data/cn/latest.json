@@ -1,14 +1,14 @@
 {
-  "run_id": "05c75aa9-9f6c-4837-a193-07f334b24f27",
+  "run_id": "e66b58bd-cc72-47a1-86c4-8ee407211f78",
   "market": "cn",
   "language": "zh",
   "trade_date": "2026-06-26",
-  "last_updated_at": "2026-06-27T09:44:01+00:00",
+  "last_updated_at": "2026-06-27T13:58:05+00:00",
   "mode": "heuristic_adapter",
   "source": "eastmoney",
   "model_checkpoint": "outputs/paper_experiments/finverse/best_checkpoint.pt",
   "pipeline_status": {
-    "run_id": "05c75aa9-9f6c-4837-a193-07f334b24f27",
+    "run_id": "e66b58bd-cc72-47a1-86c4-8ee407211f78",
     "stages": [
       {
         "name": "fetch",
@@ -4448,6 +4448,2914 @@
         "downside estimate is controlled"
       ],
       "rank": 12
+    },
+    {
+      "ticker": "600036.SH",
+      "name": "招商银行",
+      "sector": "金融",
+      "type": "stock",
+      "close": 36.0,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 39.87
+        },
+        {
+          "date": "2026-04-22",
+          "close": 39.74
+        },
+        {
+          "date": "2026-04-23",
+          "close": 39.81
+        },
+        {
+          "date": "2026-04-24",
+          "close": 39.38
+        },
+        {
+          "date": "2026-04-27",
+          "close": 39.38
+        },
+        {
+          "date": "2026-04-28",
+          "close": 39.6
+        },
+        {
+          "date": "2026-04-29",
+          "close": 38.5
+        },
+        {
+          "date": "2026-04-30",
+          "close": 38.27
+        },
+        {
+          "date": "2026-05-06",
+          "close": 38.0
+        },
+        {
+          "date": "2026-05-07",
+          "close": 37.95
+        },
+        {
+          "date": "2026-05-08",
+          "close": 37.94
+        },
+        {
+          "date": "2026-05-11",
+          "close": 37.97
+        },
+        {
+          "date": "2026-05-12",
+          "close": 37.9
+        },
+        {
+          "date": "2026-05-13",
+          "close": 37.88
+        },
+        {
+          "date": "2026-05-14",
+          "close": 37.81
+        },
+        {
+          "date": "2026-05-15",
+          "close": 37.65
+        },
+        {
+          "date": "2026-05-18",
+          "close": 37.47
+        },
+        {
+          "date": "2026-05-19",
+          "close": 37.37
+        },
+        {
+          "date": "2026-05-20",
+          "close": 37.17
+        },
+        {
+          "date": "2026-05-21",
+          "close": 37.15
+        },
+        {
+          "date": "2026-05-22",
+          "close": 37.02
+        },
+        {
+          "date": "2026-05-25",
+          "close": 36.94
+        },
+        {
+          "date": "2026-05-26",
+          "close": 37.0
+        },
+        {
+          "date": "2026-05-27",
+          "close": 37.0
+        },
+        {
+          "date": "2026-05-28",
+          "close": 37.12
+        },
+        {
+          "date": "2026-05-29",
+          "close": 38.01
+        },
+        {
+          "date": "2026-06-01",
+          "close": 38.2
+        },
+        {
+          "date": "2026-06-02",
+          "close": 38.8
+        },
+        {
+          "date": "2026-06-03",
+          "close": 38.5
+        },
+        {
+          "date": "2026-06-04",
+          "close": 38.1
+        },
+        {
+          "date": "2026-06-05",
+          "close": 38.58
+        },
+        {
+          "date": "2026-06-08",
+          "close": 38.5
+        },
+        {
+          "date": "2026-06-09",
+          "close": 38.49
+        },
+        {
+          "date": "2026-06-10",
+          "close": 38.9
+        },
+        {
+          "date": "2026-06-11",
+          "close": 38.73
+        },
+        {
+          "date": "2026-06-12",
+          "close": 39.34
+        },
+        {
+          "date": "2026-06-15",
+          "close": 38.95
+        },
+        {
+          "date": "2026-06-16",
+          "close": 38.57
+        },
+        {
+          "date": "2026-06-17",
+          "close": 38.23
+        },
+        {
+          "date": "2026-06-18",
+          "close": 37.26
+        },
+        {
+          "date": "2026-06-22",
+          "close": 37.65
+        },
+        {
+          "date": "2026-06-23",
+          "close": 37.4
+        },
+        {
+          "date": "2026-06-24",
+          "close": 36.76
+        },
+        {
+          "date": "2026-06-25",
+          "close": 36.23
+        },
+        {
+          "date": "2026-06-26",
+          "close": 36.0
+        }
+      ],
+      "return_1d": -0.006348330113165823,
+      "return_5d": -0.033816425120772875,
+      "return_20d": -0.030172413793103425,
+      "vol_20d": 0.012500793228497658,
+      "expected_return_30d": -0.028550423818035693,
+      "predicted_volatility": 0.06846966437956,
+      "predicted_downside": 0.037494393439007345,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": -0.000951680793934523,
+          "predicted_close": 35.96573949141836
+        },
+        {
+          "horizon": 2,
+          "predicted_return": -0.001903361587869046,
+          "predicted_close": 35.931478982836715
+        },
+        {
+          "horizon": 3,
+          "predicted_return": -0.0028550423818035696,
+          "predicted_close": 35.89721847425507
+        },
+        {
+          "horizon": 4,
+          "predicted_return": -0.003806723175738092,
+          "predicted_close": 35.86295796567343
+        },
+        {
+          "horizon": 5,
+          "predicted_return": -0.004758403969672615,
+          "predicted_close": 35.828697457091785
+        },
+        {
+          "horizon": 6,
+          "predicted_return": -0.005710084763607139,
+          "predicted_close": 35.794436948510146
+        },
+        {
+          "horizon": 7,
+          "predicted_return": -0.006661765557541662,
+          "predicted_close": 35.7601764399285
+        },
+        {
+          "horizon": 8,
+          "predicted_return": -0.007613446351476184,
+          "predicted_close": 35.725915931346854
+        },
+        {
+          "horizon": 9,
+          "predicted_return": -0.008565127145410708,
+          "predicted_close": 35.691655422765216
+        },
+        {
+          "horizon": 10,
+          "predicted_return": -0.00951680793934523,
+          "predicted_close": 35.65739491418357
+        },
+        {
+          "horizon": 11,
+          "predicted_return": -0.010468488733279753,
+          "predicted_close": 35.62313440560193
+        },
+        {
+          "horizon": 12,
+          "predicted_return": -0.011420169527214278,
+          "predicted_close": 35.588873897020285
+        },
+        {
+          "horizon": 13,
+          "predicted_return": -0.0123718503211488,
+          "predicted_close": 35.55461338843864
+        },
+        {
+          "horizon": 14,
+          "predicted_return": -0.013323531115083324,
+          "predicted_close": 35.520352879857
+        },
+        {
+          "horizon": 15,
+          "predicted_return": -0.014275211909017847,
+          "predicted_close": 35.48609237127536
+        },
+        {
+          "horizon": 16,
+          "predicted_return": -0.015226892702952369,
+          "predicted_close": 35.451831862693716
+        },
+        {
+          "horizon": 17,
+          "predicted_return": -0.01617857349688689,
+          "predicted_close": 35.41757135411207
+        },
+        {
+          "horizon": 18,
+          "predicted_return": -0.017130254290821417,
+          "predicted_close": 35.38331084553043
+        },
+        {
+          "horizon": 19,
+          "predicted_return": -0.01808193508475594,
+          "predicted_close": 35.349050336948785
+        },
+        {
+          "horizon": 20,
+          "predicted_return": -0.01903361587869046,
+          "predicted_close": 35.31478982836715
+        },
+        {
+          "horizon": 21,
+          "predicted_return": -0.019985296672624983,
+          "predicted_close": 35.2805293197855
+        },
+        {
+          "horizon": 22,
+          "predicted_return": -0.020936977466559505,
+          "predicted_close": 35.246268811203855
+        },
+        {
+          "horizon": 23,
+          "predicted_return": -0.021888658260494034,
+          "predicted_close": 35.212008302622216
+        },
+        {
+          "horizon": 24,
+          "predicted_return": -0.022840339054428557,
+          "predicted_close": 35.17774779404057
+        },
+        {
+          "horizon": 25,
+          "predicted_return": -0.02379201984836308,
+          "predicted_close": 35.14348728545893
+        },
+        {
+          "horizon": 26,
+          "predicted_return": -0.0247437006422976,
+          "predicted_close": 35.109226776877286
+        },
+        {
+          "horizon": 27,
+          "predicted_return": -0.025695381436232123,
+          "predicted_close": 35.07496626829564
+        },
+        {
+          "horizon": 28,
+          "predicted_return": -0.02664706223016665,
+          "predicted_close": 35.040705759714
+        },
+        {
+          "horizon": 29,
+          "predicted_return": -0.02759874302410117,
+          "predicted_close": 35.00644525113236
+        },
+        {
+          "horizon": 30,
+          "predicted_return": -0.028550423818035693,
+          "predicted_close": 34.972184742550716
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 50,
+        "cross_asset_token": 141
+      },
+      "score": 0.7168001765687653,
+      "reasons": [
+        "risk estimate is relatively low",
+        "downside estimate is controlled"
+      ],
+      "rank": 13
+    },
+    {
+      "ticker": "000001.SZ",
+      "name": "平安银行",
+      "sector": "金融",
+      "type": "stock",
+      "close": 10.23,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 10.72
+        },
+        {
+          "date": "2026-04-22",
+          "close": 10.62
+        },
+        {
+          "date": "2026-04-23",
+          "close": 10.64
+        },
+        {
+          "date": "2026-04-24",
+          "close": 10.64
+        },
+        {
+          "date": "2026-04-27",
+          "close": 11.02
+        },
+        {
+          "date": "2026-04-28",
+          "close": 11.1
+        },
+        {
+          "date": "2026-04-29",
+          "close": 11.16
+        },
+        {
+          "date": "2026-04-30",
+          "close": 11.13
+        },
+        {
+          "date": "2026-05-06",
+          "close": 11.0
+        },
+        {
+          "date": "2026-05-07",
+          "close": 11.01
+        },
+        {
+          "date": "2026-05-08",
+          "close": 10.94
+        },
+        {
+          "date": "2026-05-11",
+          "close": 10.92
+        },
+        {
+          "date": "2026-05-12",
+          "close": 10.89
+        },
+        {
+          "date": "2026-05-13",
+          "close": 10.78
+        },
+        {
+          "date": "2026-05-14",
+          "close": 10.69
+        },
+        {
+          "date": "2026-05-15",
+          "close": 10.63
+        },
+        {
+          "date": "2026-05-18",
+          "close": 10.5
+        },
+        {
+          "date": "2026-05-19",
+          "close": 10.5
+        },
+        {
+          "date": "2026-05-20",
+          "close": 10.41
+        },
+        {
+          "date": "2026-05-21",
+          "close": 10.34
+        },
+        {
+          "date": "2026-05-22",
+          "close": 10.32
+        },
+        {
+          "date": "2026-05-25",
+          "close": 10.32
+        },
+        {
+          "date": "2026-05-26",
+          "close": 10.43
+        },
+        {
+          "date": "2026-05-27",
+          "close": 10.4
+        },
+        {
+          "date": "2026-05-28",
+          "close": 10.3
+        },
+        {
+          "date": "2026-05-29",
+          "close": 10.57
+        },
+        {
+          "date": "2026-06-01",
+          "close": 10.63
+        },
+        {
+          "date": "2026-06-02",
+          "close": 10.72
+        },
+        {
+          "date": "2026-06-03",
+          "close": 10.63
+        },
+        {
+          "date": "2026-06-04",
+          "close": 10.46
+        },
+        {
+          "date": "2026-06-05",
+          "close": 10.62
+        },
+        {
+          "date": "2026-06-08",
+          "close": 10.67
+        },
+        {
+          "date": "2026-06-09",
+          "close": 10.77
+        },
+        {
+          "date": "2026-06-10",
+          "close": 10.96
+        },
+        {
+          "date": "2026-06-11",
+          "close": 10.94
+        },
+        {
+          "date": "2026-06-12",
+          "close": 11.24
+        },
+        {
+          "date": "2026-06-15",
+          "close": 11.06
+        },
+        {
+          "date": "2026-06-16",
+          "close": 10.94
+        },
+        {
+          "date": "2026-06-17",
+          "close": 10.78
+        },
+        {
+          "date": "2026-06-18",
+          "close": 10.52
+        },
+        {
+          "date": "2026-06-22",
+          "close": 10.65
+        },
+        {
+          "date": "2026-06-23",
+          "close": 10.71
+        },
+        {
+          "date": "2026-06-24",
+          "close": 10.51
+        },
+        {
+          "date": "2026-06-25",
+          "close": 10.42
+        },
+        {
+          "date": "2026-06-26",
+          "close": 10.23
+        }
+      ],
+      "return_1d": -0.018234165067178454,
+      "return_5d": -0.027566539923954303,
+      "return_20d": -0.006796116504854344,
+      "vol_20d": 0.015224285108124787,
+      "expected_return_30d": -0.01744160952797727,
+      "predicted_volatility": 0.08338684375609923,
+      "predicted_downside": 0.03959799057266657,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": -0.0005813869842659089,
+          "predicted_close": 10.22405241115096
+        },
+        {
+          "horizon": 2,
+          "predicted_return": -0.0011627739685318179,
+          "predicted_close": 10.21810482230192
+        },
+        {
+          "horizon": 3,
+          "predicted_return": -0.001744160952797727,
+          "predicted_close": 10.21215723345288
+        },
+        {
+          "horizon": 4,
+          "predicted_return": -0.0023255479370636357,
+          "predicted_close": 10.20620964460384
+        },
+        {
+          "horizon": 5,
+          "predicted_return": -0.0029069349213295447,
+          "predicted_close": 10.200262055754798
+        },
+        {
+          "horizon": 6,
+          "predicted_return": -0.003488321905595454,
+          "predicted_close": 10.194314466905759
+        },
+        {
+          "horizon": 7,
+          "predicted_return": -0.004069708889861363,
+          "predicted_close": 10.18836687805672
+        },
+        {
+          "horizon": 8,
+          "predicted_return": -0.0046510958741272715,
+          "predicted_close": 10.182419289207678
+        },
+        {
+          "horizon": 9,
+          "predicted_return": -0.00523248285839318,
+          "predicted_close": 10.176471700358638
+        },
+        {
+          "horizon": 10,
+          "predicted_return": -0.005813869842659089,
+          "predicted_close": 10.170524111509598
+        },
+        {
+          "horizon": 11,
+          "predicted_return": -0.006395256826924998,
+          "predicted_close": 10.164576522660559
+        },
+        {
+          "horizon": 12,
+          "predicted_return": -0.006976643811190908,
+          "predicted_close": 10.158628933811517
+        },
+        {
+          "horizon": 13,
+          "predicted_return": -0.007558030795456817,
+          "predicted_close": 10.152681344962478
+        },
+        {
+          "horizon": 14,
+          "predicted_return": -0.008139417779722727,
+          "predicted_close": 10.146733756113438
+        },
+        {
+          "horizon": 15,
+          "predicted_return": -0.008720804763988635,
+          "predicted_close": 10.140786167264396
+        },
+        {
+          "horizon": 16,
+          "predicted_return": -0.009302191748254543,
+          "predicted_close": 10.134838578415357
+        },
+        {
+          "horizon": 17,
+          "predicted_return": -0.009883578732520453,
+          "predicted_close": 10.128890989566317
+        },
+        {
+          "horizon": 18,
+          "predicted_return": -0.01046496571678636,
+          "predicted_close": 10.122943400717276
+        },
+        {
+          "horizon": 19,
+          "predicted_return": -0.01104635270105227,
+          "predicted_close": 10.116995811868236
+        },
+        {
+          "horizon": 20,
+          "predicted_return": -0.011627739685318179,
+          "predicted_close": 10.111048223019196
+        },
+        {
+          "horizon": 21,
+          "predicted_return": -0.012209126669584089,
+          "predicted_close": 10.105100634170155
+        },
+        {
+          "horizon": 22,
+          "predicted_return": -0.012790513653849997,
+          "predicted_close": 10.099153045321115
+        },
+        {
+          "horizon": 23,
+          "predicted_return": -0.013371900638115908,
+          "predicted_close": 10.093205456472075
+        },
+        {
+          "horizon": 24,
+          "predicted_return": -0.013953287622381816,
+          "predicted_close": 10.087257867623034
+        },
+        {
+          "horizon": 25,
+          "predicted_return": -0.014534674606647726,
+          "predicted_close": 10.081310278773994
+        },
+        {
+          "horizon": 26,
+          "predicted_return": -0.015116061590913634,
+          "predicted_close": 10.075362689924955
+        },
+        {
+          "horizon": 27,
+          "predicted_return": -0.015697448575179542,
+          "predicted_close": 10.069415101075913
+        },
+        {
+          "horizon": 28,
+          "predicted_return": -0.016278835559445454,
+          "predicted_close": 10.063467512226874
+        },
+        {
+          "horizon": 29,
+          "predicted_return": -0.016860222543711362,
+          "predicted_close": 10.057519923377834
+        },
+        {
+          "horizon": 30,
+          "predicted_return": -0.01744160952797727,
+          "predicted_close": 10.051572334528792
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 216,
+        "cross_asset_token": 141
+      },
+      "score": 0.7001625007411624,
+      "reasons": [
+        "risk estimate is relatively low",
+        "downside estimate is controlled"
+      ],
+      "rank": 14
+    },
+    {
+      "ticker": "600276.SH",
+      "name": "恒瑞医药",
+      "sector": "医药",
+      "type": "stock",
+      "close": 48.67,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 55.55
+        },
+        {
+          "date": "2026-04-22",
+          "close": 55.24
+        },
+        {
+          "date": "2026-04-23",
+          "close": 56.2
+        },
+        {
+          "date": "2026-04-24",
+          "close": 55.85
+        },
+        {
+          "date": "2026-04-27",
+          "close": 55.18
+        },
+        {
+          "date": "2026-04-28",
+          "close": 54.64
+        },
+        {
+          "date": "2026-04-29",
+          "close": 54.79
+        },
+        {
+          "date": "2026-04-30",
+          "close": 53.68
+        },
+        {
+          "date": "2026-05-06",
+          "close": 53.43
+        },
+        {
+          "date": "2026-05-07",
+          "close": 53.48
+        },
+        {
+          "date": "2026-05-08",
+          "close": 52.6
+        },
+        {
+          "date": "2026-05-11",
+          "close": 53.32
+        },
+        {
+          "date": "2026-05-12",
+          "close": 55.91
+        },
+        {
+          "date": "2026-05-13",
+          "close": 55.66
+        },
+        {
+          "date": "2026-05-14",
+          "close": 54.12
+        },
+        {
+          "date": "2026-05-15",
+          "close": 53.79
+        },
+        {
+          "date": "2026-05-18",
+          "close": 52.23
+        },
+        {
+          "date": "2026-05-19",
+          "close": 51.39
+        },
+        {
+          "date": "2026-05-20",
+          "close": 50.75
+        },
+        {
+          "date": "2026-05-21",
+          "close": 51.25
+        },
+        {
+          "date": "2026-05-22",
+          "close": 50.27
+        },
+        {
+          "date": "2026-05-25",
+          "close": 49.23
+        },
+        {
+          "date": "2026-05-26",
+          "close": 49.0
+        },
+        {
+          "date": "2026-05-27",
+          "close": 50.37
+        },
+        {
+          "date": "2026-05-28",
+          "close": 48.0
+        },
+        {
+          "date": "2026-05-29",
+          "close": 50.19
+        },
+        {
+          "date": "2026-06-01",
+          "close": 49.17
+        },
+        {
+          "date": "2026-06-02",
+          "close": 48.4
+        },
+        {
+          "date": "2026-06-03",
+          "close": 47.2
+        },
+        {
+          "date": "2026-06-04",
+          "close": 46.63
+        },
+        {
+          "date": "2026-06-05",
+          "close": 47.08
+        },
+        {
+          "date": "2026-06-08",
+          "close": 45.94
+        },
+        {
+          "date": "2026-06-09",
+          "close": 46.38
+        },
+        {
+          "date": "2026-06-10",
+          "close": 47.01
+        },
+        {
+          "date": "2026-06-11",
+          "close": 46.98
+        },
+        {
+          "date": "2026-06-12",
+          "close": 48.49
+        },
+        {
+          "date": "2026-06-15",
+          "close": 47.88
+        },
+        {
+          "date": "2026-06-16",
+          "close": 47.35
+        },
+        {
+          "date": "2026-06-17",
+          "close": 46.99
+        },
+        {
+          "date": "2026-06-18",
+          "close": 48.42
+        },
+        {
+          "date": "2026-06-22",
+          "close": 49.36
+        },
+        {
+          "date": "2026-06-23",
+          "close": 48.98
+        },
+        {
+          "date": "2026-06-24",
+          "close": 50.25
+        },
+        {
+          "date": "2026-06-25",
+          "close": 50.04
+        },
+        {
+          "date": "2026-06-26",
+          "close": 48.67
+        }
+      ],
+      "return_1d": -0.027378097521982392,
+      "return_5d": 0.005163155720776524,
+      "return_20d": 0.013958333333333295,
+      "vol_20d": 0.020752514481101818,
+      "expected_return_30d": 0.004268765776276903,
+      "predicted_volatility": 0.11366620306252083,
+      "predicted_downside": 0.04416146383672709,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": 0.00014229219254256344,
+          "predicted_close": 48.676925361011044
+        },
+        {
+          "horizon": 2,
+          "predicted_return": 0.00028458438508512687,
+          "predicted_close": 48.68385072202209
+        },
+        {
+          "horizon": 3,
+          "predicted_return": 0.00042687657762769033,
+          "predicted_close": 48.690776083033136
+        },
+        {
+          "horizon": 4,
+          "predicted_return": 0.0005691687701702537,
+          "predicted_close": 48.69770144404419
+        },
+        {
+          "horizon": 5,
+          "predicted_return": 0.0007114609627128171,
+          "predicted_close": 48.704626805055234
+        },
+        {
+          "horizon": 6,
+          "predicted_return": 0.0008537531552553807,
+          "predicted_close": 48.711552166066284
+        },
+        {
+          "horizon": 7,
+          "predicted_return": 0.000996045347797944,
+          "predicted_close": 48.718477527077326
+        },
+        {
+          "horizon": 8,
+          "predicted_return": 0.0011383375403405075,
+          "predicted_close": 48.72540288808837
+        },
+        {
+          "horizon": 9,
+          "predicted_return": 0.0012806297328830708,
+          "predicted_close": 48.732328249099425
+        },
+        {
+          "horizon": 10,
+          "predicted_return": 0.0014229219254256343,
+          "predicted_close": 48.73925361011047
+        },
+        {
+          "horizon": 11,
+          "predicted_return": 0.0015652141179681976,
+          "predicted_close": 48.746178971121516
+        },
+        {
+          "horizon": 12,
+          "predicted_return": 0.0017075063105107613,
+          "predicted_close": 48.75310433213256
+        },
+        {
+          "horizon": 13,
+          "predicted_return": 0.0018497985030533246,
+          "predicted_close": 48.7600296931436
+        },
+        {
+          "horizon": 14,
+          "predicted_return": 0.001992090695595888,
+          "predicted_close": 48.76695505415466
+        },
+        {
+          "horizon": 15,
+          "predicted_return": 0.0021343828881384514,
+          "predicted_close": 48.7738804151657
+        },
+        {
+          "horizon": 16,
+          "predicted_return": 0.002276675080681015,
+          "predicted_close": 48.78080577617675
+        },
+        {
+          "horizon": 17,
+          "predicted_return": 0.002418967273223578,
+          "predicted_close": 48.78773113718779
+        },
+        {
+          "horizon": 18,
+          "predicted_return": 0.0025612594657661416,
+          "predicted_close": 48.79465649819885
+        },
+        {
+          "horizon": 19,
+          "predicted_return": 0.002703551658308705,
+          "predicted_close": 48.80158185920989
+        },
+        {
+          "horizon": 20,
+          "predicted_return": 0.0028458438508512686,
+          "predicted_close": 48.80850722022093
+        },
+        {
+          "horizon": 21,
+          "predicted_return": 0.0029881360433938317,
+          "predicted_close": 48.81543258123198
+        },
+        {
+          "horizon": 22,
+          "predicted_return": 0.003130428235936395,
+          "predicted_close": 48.82235794224302
+        },
+        {
+          "horizon": 23,
+          "predicted_return": 0.003272720428478959,
+          "predicted_close": 48.82928330325408
+        },
+        {
+          "horizon": 24,
+          "predicted_return": 0.0034150126210215227,
+          "predicted_close": 48.836208664265115
+        },
+        {
+          "horizon": 25,
+          "predicted_return": 0.0035573048135640857,
+          "predicted_close": 48.84313402527616
+        },
+        {
+          "horizon": 26,
+          "predicted_return": 0.0036995970061066493,
+          "predicted_close": 48.850059386287214
+        },
+        {
+          "horizon": 27,
+          "predicted_return": 0.0038418891986492128,
+          "predicted_close": 48.856984747298256
+        },
+        {
+          "horizon": 28,
+          "predicted_return": 0.003984181391191776,
+          "predicted_close": 48.863910108309305
+        },
+        {
+          "horizon": 29,
+          "predicted_return": 0.00412647358373434,
+          "predicted_close": 48.87083546932035
+        },
+        {
+          "horizon": 30,
+          "predicted_return": 0.004268765776276903,
+          "predicted_close": 48.877760830331404
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 137,
+        "cross_asset_token": 69
+      },
+      "score": 0.6961923356059658,
+      "reasons": [
+        "risk estimate is relatively low",
+        "downside estimate is controlled",
+        "sector matches the selected strategy"
+      ],
+      "rank": 15
+    },
+    {
+      "ticker": "600519.SH",
+      "name": "贵州茅台",
+      "sector": "消费",
+      "type": "stock",
+      "close": 1168.63,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 1383.99
+        },
+        {
+          "date": "2026-04-22",
+          "close": 1381.48
+        },
+        {
+          "date": "2026-04-23",
+          "close": 1390.98
+        },
+        {
+          "date": "2026-04-24",
+          "close": 1430.47
+        },
+        {
+          "date": "2026-04-27",
+          "close": 1375.18
+        },
+        {
+          "date": "2026-04-28",
+          "close": 1376.98
+        },
+        {
+          "date": "2026-04-29",
+          "close": 1373.15
+        },
+        {
+          "date": "2026-04-30",
+          "close": 1356.77
+        },
+        {
+          "date": "2026-05-06",
+          "close": 1346.98
+        },
+        {
+          "date": "2026-05-07",
+          "close": 1343.03
+        },
+        {
+          "date": "2026-05-08",
+          "close": 1344.97
+        },
+        {
+          "date": "2026-05-11",
+          "close": 1333.31
+        },
+        {
+          "date": "2026-05-12",
+          "close": 1326.53
+        },
+        {
+          "date": "2026-05-13",
+          "close": 1316.07
+        },
+        {
+          "date": "2026-05-14",
+          "close": 1314.15
+        },
+        {
+          "date": "2026-05-15",
+          "close": 1304.93
+        },
+        {
+          "date": "2026-05-18",
+          "close": 1294.98
+        },
+        {
+          "date": "2026-05-19",
+          "close": 1296.28
+        },
+        {
+          "date": "2026-05-20",
+          "close": 1286.98
+        },
+        {
+          "date": "2026-05-21",
+          "close": 1282.98
+        },
+        {
+          "date": "2026-05-22",
+          "close": 1262.18
+        },
+        {
+          "date": "2026-05-25",
+          "close": 1257.86
+        },
+        {
+          "date": "2026-05-26",
+          "close": 1245.36
+        },
+        {
+          "date": "2026-05-27",
+          "close": 1274.98
+        },
+        {
+          "date": "2026-05-28",
+          "close": 1247.96
+        },
+        {
+          "date": "2026-05-29",
+          "close": 1297.98
+        },
+        {
+          "date": "2026-06-01",
+          "close": 1281.58
+        },
+        {
+          "date": "2026-06-02",
+          "close": 1279.2
+        },
+        {
+          "date": "2026-06-03",
+          "close": 1253.89
+        },
+        {
+          "date": "2026-06-04",
+          "close": 1239.98
+        },
+        {
+          "date": "2026-06-05",
+          "close": 1244.84
+        },
+        {
+          "date": "2026-06-08",
+          "close": 1234.96
+        },
+        {
+          "date": "2026-06-09",
+          "close": 1227.98
+        },
+        {
+          "date": "2026-06-10",
+          "close": 1247.86
+        },
+        {
+          "date": "2026-06-11",
+          "close": 1250.98
+        },
+        {
+          "date": "2026-06-12",
+          "close": 1263.89
+        },
+        {
+          "date": "2026-06-15",
+          "close": 1243.08
+        },
+        {
+          "date": "2026-06-16",
+          "close": 1227.65
+        },
+        {
+          "date": "2026-06-17",
+          "close": 1211.98
+        },
+        {
+          "date": "2026-06-18",
+          "close": 1186.98
+        },
+        {
+          "date": "2026-06-22",
+          "close": 1213.39
+        },
+        {
+          "date": "2026-06-23",
+          "close": 1194.43
+        },
+        {
+          "date": "2026-06-24",
+          "close": 1179.66
+        },
+        {
+          "date": "2026-06-25",
+          "close": 1184.08
+        },
+        {
+          "date": "2026-06-26",
+          "close": 1168.63
+        }
+      ],
+      "return_1d": -0.013048104857779741,
+      "return_5d": -0.01545940116935407,
+      "return_20d": -0.06356774255585107,
+      "vol_20d": 0.015263017637382467,
+      "expected_return_30d": -0.036295588229125895,
+      "predicted_volatility": 0.08359899055593582,
+      "predicted_downside": 0.04628209468243549,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": -0.0012098529409708633,
+          "predicted_close": 1167.2161295575934
+        },
+        {
+          "horizon": 2,
+          "predicted_return": -0.0024197058819417265,
+          "predicted_close": 1165.8022591151866
+        },
+        {
+          "horizon": 3,
+          "predicted_return": -0.00362955882291259,
+          "predicted_close": 1164.3883886727797
+        },
+        {
+          "horizon": 4,
+          "predicted_return": -0.004839411763883453,
+          "predicted_close": 1162.974518230373
+        },
+        {
+          "horizon": 5,
+          "predicted_return": -0.006049264704854316,
+          "predicted_close": 1161.5606477879662
+        },
+        {
+          "horizon": 6,
+          "predicted_return": -0.00725911764582518,
+          "predicted_close": 1160.1467773455595
+        },
+        {
+          "horizon": 7,
+          "predicted_return": -0.008468970586796042,
+          "predicted_close": 1158.7329069031525
+        },
+        {
+          "horizon": 8,
+          "predicted_return": -0.009678823527766906,
+          "predicted_close": 1157.3190364607458
+        },
+        {
+          "horizon": 9,
+          "predicted_return": -0.010888676468737769,
+          "predicted_close": 1155.905166018339
+        },
+        {
+          "horizon": 10,
+          "predicted_return": -0.012098529409708632,
+          "predicted_close": 1154.4912955759323
+        },
+        {
+          "horizon": 11,
+          "predicted_return": -0.013308382350679495,
+          "predicted_close": 1153.0774251335254
+        },
+        {
+          "horizon": 12,
+          "predicted_return": -0.01451823529165036,
+          "predicted_close": 1151.6635546911189
+        },
+        {
+          "horizon": 13,
+          "predicted_return": -0.015728088232621222,
+          "predicted_close": 1150.2496842487121
+        },
+        {
+          "horizon": 14,
+          "predicted_return": -0.016937941173592083,
+          "predicted_close": 1148.8358138063052
+        },
+        {
+          "horizon": 15,
+          "predicted_return": -0.018147794114562948,
+          "predicted_close": 1147.4219433638984
+        },
+        {
+          "horizon": 16,
+          "predicted_return": -0.019357647055533812,
+          "predicted_close": 1146.0080729214917
+        },
+        {
+          "horizon": 17,
+          "predicted_return": -0.020567499996504673,
+          "predicted_close": 1144.594202479085
+        },
+        {
+          "horizon": 18,
+          "predicted_return": -0.021777352937475538,
+          "predicted_close": 1143.180332036678
+        },
+        {
+          "horizon": 19,
+          "predicted_return": -0.0229872058784464,
+          "predicted_close": 1141.7664615942713
+        },
+        {
+          "horizon": 20,
+          "predicted_return": -0.024197058819417264,
+          "predicted_close": 1140.3525911518645
+        },
+        {
+          "horizon": 21,
+          "predicted_return": -0.025406911760388125,
+          "predicted_close": 1138.9387207094578
+        },
+        {
+          "horizon": 22,
+          "predicted_return": -0.02661676470135899,
+          "predicted_close": 1137.5248502670509
+        },
+        {
+          "horizon": 23,
+          "predicted_return": -0.027826617642329854,
+          "predicted_close": 1136.1109798246441
+        },
+        {
+          "horizon": 24,
+          "predicted_return": -0.02903647058330072,
+          "predicted_close": 1134.6971093822374
+        },
+        {
+          "horizon": 25,
+          "predicted_return": -0.03024632352427158,
+          "predicted_close": 1133.2832389398307
+        },
+        {
+          "horizon": 26,
+          "predicted_return": -0.031456176465242444,
+          "predicted_close": 1131.869368497424
+        },
+        {
+          "horizon": 27,
+          "predicted_return": -0.032666029406213305,
+          "predicted_close": 1130.455498055017
+        },
+        {
+          "horizon": 28,
+          "predicted_return": -0.033875882347184166,
+          "predicted_close": 1129.0416276126102
+        },
+        {
+          "horizon": 29,
+          "predicted_return": -0.035085735288155034,
+          "predicted_close": 1127.6277571702035
+        },
+        {
+          "horizon": 30,
+          "predicted_return": -0.036295588229125895,
+          "predicted_close": 1126.2138867277968
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 136,
+        "cross_asset_token": 225
+      },
+      "score": 0.6927583356060664,
+      "reasons": [
+        "risk estimate is relatively low",
+        "downside estimate is controlled",
+        "sector matches the selected strategy"
+      ],
+      "rank": 16
+    },
+    {
+      "ticker": "601668.SH",
+      "name": "中国建筑",
+      "sector": "工业",
+      "type": "stock",
+      "close": 4.4,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 4.85
+        },
+        {
+          "date": "2026-04-22",
+          "close": 4.85
+        },
+        {
+          "date": "2026-04-23",
+          "close": 4.85
+        },
+        {
+          "date": "2026-04-24",
+          "close": 4.84
+        },
+        {
+          "date": "2026-04-27",
+          "close": 4.81
+        },
+        {
+          "date": "2026-04-28",
+          "close": 4.83
+        },
+        {
+          "date": "2026-04-29",
+          "close": 4.9
+        },
+        {
+          "date": "2026-04-30",
+          "close": 4.91
+        },
+        {
+          "date": "2026-05-06",
+          "close": 4.92
+        },
+        {
+          "date": "2026-05-07",
+          "close": 4.91
+        },
+        {
+          "date": "2026-05-08",
+          "close": 4.91
+        },
+        {
+          "date": "2026-05-11",
+          "close": 5.0
+        },
+        {
+          "date": "2026-05-12",
+          "close": 4.99
+        },
+        {
+          "date": "2026-05-13",
+          "close": 4.97
+        },
+        {
+          "date": "2026-05-14",
+          "close": 4.94
+        },
+        {
+          "date": "2026-05-15",
+          "close": 4.93
+        },
+        {
+          "date": "2026-05-18",
+          "close": 4.89
+        },
+        {
+          "date": "2026-05-19",
+          "close": 4.89
+        },
+        {
+          "date": "2026-05-20",
+          "close": 4.84
+        },
+        {
+          "date": "2026-05-21",
+          "close": 4.8
+        },
+        {
+          "date": "2026-05-22",
+          "close": 4.78
+        },
+        {
+          "date": "2026-05-25",
+          "close": 4.77
+        },
+        {
+          "date": "2026-05-26",
+          "close": 4.76
+        },
+        {
+          "date": "2026-05-27",
+          "close": 4.73
+        },
+        {
+          "date": "2026-05-28",
+          "close": 4.73
+        },
+        {
+          "date": "2026-05-29",
+          "close": 4.83
+        },
+        {
+          "date": "2026-06-01",
+          "close": 4.85
+        },
+        {
+          "date": "2026-06-02",
+          "close": 4.86
+        },
+        {
+          "date": "2026-06-03",
+          "close": 4.77
+        },
+        {
+          "date": "2026-06-04",
+          "close": 4.71
+        },
+        {
+          "date": "2026-06-05",
+          "close": 4.72
+        },
+        {
+          "date": "2026-06-08",
+          "close": 4.7
+        },
+        {
+          "date": "2026-06-09",
+          "close": 4.7
+        },
+        {
+          "date": "2026-06-10",
+          "close": 4.74
+        },
+        {
+          "date": "2026-06-11",
+          "close": 4.74
+        },
+        {
+          "date": "2026-06-12",
+          "close": 4.77
+        },
+        {
+          "date": "2026-06-15",
+          "close": 4.75
+        },
+        {
+          "date": "2026-06-16",
+          "close": 4.71
+        },
+        {
+          "date": "2026-06-17",
+          "close": 4.73
+        },
+        {
+          "date": "2026-06-18",
+          "close": 4.61
+        },
+        {
+          "date": "2026-06-22",
+          "close": 4.65
+        },
+        {
+          "date": "2026-06-23",
+          "close": 4.57
+        },
+        {
+          "date": "2026-06-24",
+          "close": 4.48
+        },
+        {
+          "date": "2026-06-25",
+          "close": 4.44
+        },
+        {
+          "date": "2026-06-26",
+          "close": 4.4
+        }
+      ],
+      "return_1d": -0.009009009009009028,
+      "return_5d": -0.045553145336225564,
+      "return_20d": -0.06976744186046513,
+      "vol_20d": 0.011231928360634413,
+      "expected_return_30d": -0.05110408309141191,
+      "predicted_volatility": 0.061519805274014884,
+      "predicted_downside": 0.04259667147538988,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": -0.0017034694363803969,
+          "predicted_close": 4.392504734479926
+        },
+        {
+          "horizon": 2,
+          "predicted_return": -0.0034069388727607937,
+          "predicted_close": 4.385009468959853
+        },
+        {
+          "horizon": 3,
+          "predicted_return": -0.005110408309141191,
+          "predicted_close": 4.377514203439779
+        },
+        {
+          "horizon": 4,
+          "predicted_return": -0.0068138777455215875,
+          "predicted_close": 4.370018937919705
+        },
+        {
+          "horizon": 5,
+          "predicted_return": -0.008517347181901985,
+          "predicted_close": 4.3625236723996315
+        },
+        {
+          "horizon": 6,
+          "predicted_return": -0.010220816618282383,
+          "predicted_close": 4.355028406879558
+        },
+        {
+          "horizon": 7,
+          "predicted_return": -0.011924286054662779,
+          "predicted_close": 4.347533141359484
+        },
+        {
+          "horizon": 8,
+          "predicted_return": -0.013627755491043175,
+          "predicted_close": 4.3400378758394105
+        },
+        {
+          "horizon": 9,
+          "predicted_return": -0.015331224927423571,
+          "predicted_close": 4.3325426103193365
+        },
+        {
+          "horizon": 10,
+          "predicted_return": -0.01703469436380397,
+          "predicted_close": 4.325047344799263
+        },
+        {
+          "horizon": 11,
+          "predicted_return": -0.018738163800184365,
+          "predicted_close": 4.3175520792791895
+        },
+        {
+          "horizon": 12,
+          "predicted_return": -0.020441633236564765,
+          "predicted_close": 4.3100568137591155
+        },
+        {
+          "horizon": 13,
+          "predicted_return": -0.02214510267294516,
+          "predicted_close": 4.302561548239042
+        },
+        {
+          "horizon": 14,
+          "predicted_return": -0.023848572109325557,
+          "predicted_close": 4.295066282718968
+        },
+        {
+          "horizon": 15,
+          "predicted_return": -0.025552041545705954,
+          "predicted_close": 4.287571017198894
+        },
+        {
+          "horizon": 16,
+          "predicted_return": -0.02725551098208635,
+          "predicted_close": 4.280075751678821
+        },
+        {
+          "horizon": 17,
+          "predicted_return": -0.028958980418466746,
+          "predicted_close": 4.272580486158747
+        },
+        {
+          "horizon": 18,
+          "predicted_return": -0.030662449854847142,
+          "predicted_close": 4.265085220638673
+        },
+        {
+          "horizon": 19,
+          "predicted_return": -0.03236591929122754,
+          "predicted_close": 4.257589955118599
+        },
+        {
+          "horizon": 20,
+          "predicted_return": -0.03406938872760794,
+          "predicted_close": 4.250094689598526
+        },
+        {
+          "horizon": 21,
+          "predicted_return": -0.035772858163988334,
+          "predicted_close": 4.242599424078452
+        },
+        {
+          "horizon": 22,
+          "predicted_return": -0.03747632760036873,
+          "predicted_close": 4.235104158558378
+        },
+        {
+          "horizon": 23,
+          "predicted_return": -0.039179797036749134,
+          "predicted_close": 4.227608893038304
+        },
+        {
+          "horizon": 24,
+          "predicted_return": -0.04088326647312953,
+          "predicted_close": 4.22011362751823
+        },
+        {
+          "horizon": 25,
+          "predicted_return": -0.042586735909509926,
+          "predicted_close": 4.212618361998157
+        },
+        {
+          "horizon": 26,
+          "predicted_return": -0.04429020534589032,
+          "predicted_close": 4.205123096478083
+        },
+        {
+          "horizon": 27,
+          "predicted_return": -0.04599367478227072,
+          "predicted_close": 4.19762783095801
+        },
+        {
+          "horizon": 28,
+          "predicted_return": -0.047697144218651115,
+          "predicted_close": 4.190132565437936
+        },
+        {
+          "horizon": 29,
+          "predicted_return": -0.04940061365503151,
+          "predicted_close": 4.182637299917862
+        },
+        {
+          "horizon": 30,
+          "predicted_return": -0.05110408309141191,
+          "predicted_close": 4.175142034397788
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 213,
+        "cross_asset_token": 169
+      },
+      "score": 0.6893257557633151,
+      "reasons": [
+        "risk estimate is relatively low",
+        "downside estimate is controlled"
+      ],
+      "rank": 17
+    },
+    {
+      "ticker": "600030.SH",
+      "name": "中信证券",
+      "sector": "金融",
+      "type": "stock",
+      "close": 27.74,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 25.89
+        },
+        {
+          "date": "2026-04-22",
+          "close": 26.3
+        },
+        {
+          "date": "2026-04-23",
+          "close": 26.07
+        },
+        {
+          "date": "2026-04-24",
+          "close": 25.82
+        },
+        {
+          "date": "2026-04-27",
+          "close": 26.36
+        },
+        {
+          "date": "2026-04-28",
+          "close": 26.89
+        },
+        {
+          "date": "2026-04-29",
+          "close": 26.91
+        },
+        {
+          "date": "2026-04-30",
+          "close": 26.81
+        },
+        {
+          "date": "2026-05-06",
+          "close": 27.08
+        },
+        {
+          "date": "2026-05-07",
+          "close": 26.82
+        },
+        {
+          "date": "2026-05-08",
+          "close": 26.54
+        },
+        {
+          "date": "2026-05-11",
+          "close": 26.92
+        },
+        {
+          "date": "2026-05-12",
+          "close": 26.81
+        },
+        {
+          "date": "2026-05-13",
+          "close": 26.74
+        },
+        {
+          "date": "2026-05-14",
+          "close": 26.25
+        },
+        {
+          "date": "2026-05-15",
+          "close": 25.94
+        },
+        {
+          "date": "2026-05-18",
+          "close": 25.75
+        },
+        {
+          "date": "2026-05-19",
+          "close": 25.86
+        },
+        {
+          "date": "2026-05-20",
+          "close": 25.67
+        },
+        {
+          "date": "2026-05-21",
+          "close": 25.81
+        },
+        {
+          "date": "2026-05-22",
+          "close": 25.46
+        },
+        {
+          "date": "2026-05-25",
+          "close": 25.78
+        },
+        {
+          "date": "2026-05-26",
+          "close": 25.8
+        },
+        {
+          "date": "2026-05-27",
+          "close": 25.36
+        },
+        {
+          "date": "2026-05-28",
+          "close": 24.94
+        },
+        {
+          "date": "2026-05-29",
+          "close": 25.64
+        },
+        {
+          "date": "2026-06-01",
+          "close": 25.26
+        },
+        {
+          "date": "2026-06-02",
+          "close": 25.17
+        },
+        {
+          "date": "2026-06-03",
+          "close": 25.19
+        },
+        {
+          "date": "2026-06-04",
+          "close": 25.18
+        },
+        {
+          "date": "2026-06-05",
+          "close": 25.26
+        },
+        {
+          "date": "2026-06-08",
+          "close": 25.02
+        },
+        {
+          "date": "2026-06-09",
+          "close": 25.11
+        },
+        {
+          "date": "2026-06-10",
+          "close": 25.66
+        },
+        {
+          "date": "2026-06-11",
+          "close": 25.51
+        },
+        {
+          "date": "2026-06-12",
+          "close": 26.29
+        },
+        {
+          "date": "2026-06-15",
+          "close": 26.86
+        },
+        {
+          "date": "2026-06-16",
+          "close": 27.25
+        },
+        {
+          "date": "2026-06-17",
+          "close": 27.37
+        },
+        {
+          "date": "2026-06-18",
+          "close": 26.56
+        },
+        {
+          "date": "2026-06-22",
+          "close": 28.64
+        },
+        {
+          "date": "2026-06-23",
+          "close": 28.32
+        },
+        {
+          "date": "2026-06-24",
+          "close": 27.89
+        },
+        {
+          "date": "2026-06-25",
+          "close": 28.98
+        },
+        {
+          "date": "2026-06-26",
+          "close": 27.74
+        }
+      ],
+      "return_1d": -0.042788129744651515,
+      "return_5d": 0.04442771084337349,
+      "return_20d": 0.11226944667201266,
+      "vol_20d": 0.02585004734647684,
+      "expected_return_30d": 0.053915321501117656,
+      "predicted_volatility": 0.14158654044241928,
+      "predicted_downside": 0.037999741636857876,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": 0.0017971773833705886,
+          "predicted_close": 27.789853700614696
+        },
+        {
+          "horizon": 2,
+          "predicted_return": 0.003594354766741177,
+          "predicted_close": 27.8397074012294
+        },
+        {
+          "horizon": 3,
+          "predicted_return": 0.005391532150111766,
+          "predicted_close": 27.889561101844098
+        },
+        {
+          "horizon": 4,
+          "predicted_return": 0.007188709533482354,
+          "predicted_close": 27.9394148024588
+        },
+        {
+          "horizon": 5,
+          "predicted_return": 0.008985886916852943,
+          "predicted_close": 27.989268503073497
+        },
+        {
+          "horizon": 6,
+          "predicted_return": 0.010783064300223532,
+          "predicted_close": 28.0391222036882
+        },
+        {
+          "horizon": 7,
+          "predicted_return": 0.01258024168359412,
+          "predicted_close": 28.0889759043029
+        },
+        {
+          "horizon": 8,
+          "predicted_return": 0.014377419066964709,
+          "predicted_close": 28.1388296049176
+        },
+        {
+          "horizon": 9,
+          "predicted_return": 0.016174596450335296,
+          "predicted_close": 28.188683305532297
+        },
+        {
+          "horizon": 10,
+          "predicted_return": 0.017971773833705885,
+          "predicted_close": 28.238537006147002
+        },
+        {
+          "horizon": 11,
+          "predicted_return": 0.01976895121707647,
+          "predicted_close": 28.2883907067617
+        },
+        {
+          "horizon": 12,
+          "predicted_return": 0.021566128600447064,
+          "predicted_close": 28.338244407376404
+        },
+        {
+          "horizon": 13,
+          "predicted_return": 0.023363305983817653,
+          "predicted_close": 28.388098107991098
+        },
+        {
+          "horizon": 14,
+          "predicted_return": 0.02516048336718824,
+          "predicted_close": 28.437951808605803
+        },
+        {
+          "horizon": 15,
+          "predicted_return": 0.026957660750558828,
+          "predicted_close": 28.4878055092205
+        },
+        {
+          "horizon": 16,
+          "predicted_return": 0.028754838133929417,
+          "predicted_close": 28.537659209835198
+        },
+        {
+          "horizon": 17,
+          "predicted_return": 0.030552015517300003,
+          "predicted_close": 28.587512910449902
+        },
+        {
+          "horizon": 18,
+          "predicted_return": 0.03234919290067059,
+          "predicted_close": 28.6373666110646
+        },
+        {
+          "horizon": 19,
+          "predicted_return": 0.03414637028404118,
+          "predicted_close": 28.6872203116793
+        },
+        {
+          "horizon": 20,
+          "predicted_return": 0.03594354766741177,
+          "predicted_close": 28.737074012294
+        },
+        {
+          "horizon": 21,
+          "predicted_return": 0.03774072505078236,
+          "predicted_close": 28.786927712908703
+        },
+        {
+          "horizon": 22,
+          "predicted_return": 0.03953790243415294,
+          "predicted_close": 28.8367814135234
+        },
+        {
+          "horizon": 23,
+          "predicted_return": 0.04133507981752354,
+          "predicted_close": 28.8866351141381
+        },
+        {
+          "horizon": 24,
+          "predicted_return": 0.04313225720089413,
+          "predicted_close": 28.9364888147528
+        },
+        {
+          "horizon": 25,
+          "predicted_return": 0.04492943458426472,
+          "predicted_close": 28.986342515367504
+        },
+        {
+          "horizon": 26,
+          "predicted_return": 0.046726611967635306,
+          "predicted_close": 29.0361962159822
+        },
+        {
+          "horizon": 27,
+          "predicted_return": 0.04852378935100589,
+          "predicted_close": 29.086049916596906
+        },
+        {
+          "horizon": 28,
+          "predicted_return": 0.05032096673437648,
+          "predicted_close": 29.1359036172116
+        },
+        {
+          "horizon": 29,
+          "predicted_return": 0.05211814411774707,
+          "predicted_close": 29.185757317826305
+        },
+        {
+          "horizon": 30,
+          "predicted_return": 0.053915321501117656,
+          "predicted_close": 29.235611018441002
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 112,
+        "cross_asset_token": 141
+      },
+      "score": 0.6858563695591856,
+      "reasons": [
+        "predicted upside ranks high",
+        "downside estimate is controlled"
+      ],
+      "rank": 18
+    },
+    {
+      "ticker": "600028.SH",
+      "name": "中国石化",
+      "sector": "能源",
+      "type": "stock",
+      "close": 4.52,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 5.39
+        },
+        {
+          "date": "2026-04-22",
+          "close": 5.33
+        },
+        {
+          "date": "2026-04-23",
+          "close": 5.34
+        },
+        {
+          "date": "2026-04-24",
+          "close": 5.28
+        },
+        {
+          "date": "2026-04-27",
+          "close": 5.23
+        },
+        {
+          "date": "2026-04-28",
+          "close": 5.24
+        },
+        {
+          "date": "2026-04-29",
+          "close": 5.31
+        },
+        {
+          "date": "2026-04-30",
+          "close": 5.28
+        },
+        {
+          "date": "2026-05-06",
+          "close": 5.26
+        },
+        {
+          "date": "2026-05-07",
+          "close": 5.16
+        },
+        {
+          "date": "2026-05-08",
+          "close": 5.11
+        },
+        {
+          "date": "2026-05-11",
+          "close": 5.1
+        },
+        {
+          "date": "2026-05-12",
+          "close": 5.09
+        },
+        {
+          "date": "2026-05-13",
+          "close": 5.06
+        },
+        {
+          "date": "2026-05-14",
+          "close": 5.04
+        },
+        {
+          "date": "2026-05-15",
+          "close": 5.02
+        },
+        {
+          "date": "2026-05-18",
+          "close": 5.03
+        },
+        {
+          "date": "2026-05-19",
+          "close": 5.02
+        },
+        {
+          "date": "2026-05-20",
+          "close": 4.99
+        },
+        {
+          "date": "2026-05-21",
+          "close": 4.92
+        },
+        {
+          "date": "2026-05-22",
+          "close": 4.85
+        },
+        {
+          "date": "2026-05-25",
+          "close": 4.81
+        },
+        {
+          "date": "2026-05-26",
+          "close": 4.76
+        },
+        {
+          "date": "2026-05-27",
+          "close": 4.72
+        },
+        {
+          "date": "2026-05-28",
+          "close": 4.7
+        },
+        {
+          "date": "2026-05-29",
+          "close": 4.74
+        },
+        {
+          "date": "2026-06-01",
+          "close": 4.76
+        },
+        {
+          "date": "2026-06-02",
+          "close": 4.71
+        },
+        {
+          "date": "2026-06-03",
+          "close": 4.75
+        },
+        {
+          "date": "2026-06-04",
+          "close": 4.71
+        },
+        {
+          "date": "2026-06-05",
+          "close": 4.78
+        },
+        {
+          "date": "2026-06-08",
+          "close": 4.79
+        },
+        {
+          "date": "2026-06-09",
+          "close": 4.68
+        },
+        {
+          "date": "2026-06-10",
+          "close": 4.67
+        },
+        {
+          "date": "2026-06-11",
+          "close": 4.68
+        },
+        {
+          "date": "2026-06-12",
+          "close": 4.83
+        },
+        {
+          "date": "2026-06-15",
+          "close": 4.88
+        },
+        {
+          "date": "2026-06-16",
+          "close": 4.86
+        },
+        {
+          "date": "2026-06-17",
+          "close": 4.85
+        },
+        {
+          "date": "2026-06-18",
+          "close": 4.71
+        },
+        {
+          "date": "2026-06-22",
+          "close": 4.77
+        },
+        {
+          "date": "2026-06-23",
+          "close": 4.73
+        },
+        {
+          "date": "2026-06-24",
+          "close": 4.66
+        },
+        {
+          "date": "2026-06-25",
+          "close": 4.55
+        },
+        {
+          "date": "2026-06-26",
+          "close": 4.52
+        }
+      ],
+      "return_1d": -0.006593406593406681,
+      "return_5d": -0.04033970276008503,
+      "return_20d": -0.0382978723404257,
+      "vol_20d": 0.014279448755918394,
+      "expected_return_30d": -0.03489100958414621,
+      "predicted_volatility": 0.07821176192355585,
+      "predicted_downside": 0.04362664061747164,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": -0.0011630336528048737,
+          "predicted_close": 4.514743087889322
+        },
+        {
+          "horizon": 2,
+          "predicted_return": -0.0023260673056097474,
+          "predicted_close": 4.509486175778643
+        },
+        {
+          "horizon": 3,
+          "predicted_return": -0.0034891009584146213,
+          "predicted_close": 4.504229263667965
+        },
+        {
+          "horizon": 4,
+          "predicted_return": -0.004652134611219495,
+          "predicted_close": 4.4989723515572875
+        },
+        {
+          "horizon": 5,
+          "predicted_return": -0.005815168264024368,
+          "predicted_close": 4.49371543944661
+        },
+        {
+          "horizon": 6,
+          "predicted_return": -0.006978201916829243,
+          "predicted_close": 4.488458527335931
+        },
+        {
+          "horizon": 7,
+          "predicted_return": -0.008141235569634116,
+          "predicted_close": 4.483201615225253
+        },
+        {
+          "horizon": 8,
+          "predicted_return": -0.00930426922243899,
+          "predicted_close": 4.477944703114575
+        },
+        {
+          "horizon": 9,
+          "predicted_return": -0.010467302875243863,
+          "predicted_close": 4.472687791003898
+        },
+        {
+          "horizon": 10,
+          "predicted_return": -0.011630336528048736,
+          "predicted_close": 4.467430878893219
+        },
+        {
+          "horizon": 11,
+          "predicted_return": -0.01279337018085361,
+          "predicted_close": 4.462173966782541
+        },
+        {
+          "horizon": 12,
+          "predicted_return": -0.013956403833658485,
+          "predicted_close": 4.456917054671863
+        },
+        {
+          "horizon": 13,
+          "predicted_return": -0.015119437486463359,
+          "predicted_close": 4.4516601425611855
+        },
+        {
+          "horizon": 14,
+          "predicted_return": -0.016282471139268232,
+          "predicted_close": 4.446403230450507
+        },
+        {
+          "horizon": 15,
+          "predicted_return": -0.017445504792073106,
+          "predicted_close": 4.441146318339829
+        },
+        {
+          "horizon": 16,
+          "predicted_return": -0.01860853844487798,
+          "predicted_close": 4.435889406229151
+        },
+        {
+          "horizon": 17,
+          "predicted_return": -0.019771572097682853,
+          "predicted_close": 4.430632494118473
+        },
+        {
+          "horizon": 18,
+          "predicted_return": -0.020934605750487726,
+          "predicted_close": 4.425375582007795
+        },
+        {
+          "horizon": 19,
+          "predicted_return": -0.0220976394032926,
+          "predicted_close": 4.420118669897117
+        },
+        {
+          "horizon": 20,
+          "predicted_return": -0.023260673056097473,
+          "predicted_close": 4.414861757786439
+        },
+        {
+          "horizon": 21,
+          "predicted_return": -0.024423706708902346,
+          "predicted_close": 4.409604845675761
+        },
+        {
+          "horizon": 22,
+          "predicted_return": -0.02558674036170722,
+          "predicted_close": 4.404347933565083
+        },
+        {
+          "horizon": 23,
+          "predicted_return": -0.026749774014512097,
+          "predicted_close": 4.399091021454405
+        },
+        {
+          "horizon": 24,
+          "predicted_return": -0.02791280766731697,
+          "predicted_close": 4.393834109343727
+        },
+        {
+          "horizon": 25,
+          "predicted_return": -0.029075841320121844,
+          "predicted_close": 4.388577197233049
+        },
+        {
+          "horizon": 26,
+          "predicted_return": -0.030238874972926717,
+          "predicted_close": 4.3833202851223705
+        },
+        {
+          "horizon": 27,
+          "predicted_return": -0.03140190862573159,
+          "predicted_close": 4.378063373011693
+        },
+        {
+          "horizon": 28,
+          "predicted_return": -0.032564942278536464,
+          "predicted_close": 4.372806460901015
+        },
+        {
+          "horizon": 29,
+          "predicted_return": -0.03372797593134134,
+          "predicted_close": 4.367549548790337
+        },
+        {
+          "horizon": 30,
+          "predicted_return": -0.03489100958414621,
+          "predicted_close": 4.362292636679658
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 212,
+        "cross_asset_token": 78
+      },
+      "score": 0.6780617894387031,
+      "reasons": [
+        "risk estimate is relatively low",
+        "downside estimate is controlled"
+      ],
+      "rank": 19
+    },
+    {
+      "ticker": "512760.SH",
+      "name": "芯片ETF",
+      "sector": "行业ETF",
+      "type": "etf",
+      "close": 1.462,
+      "history_close": [
+        {
+          "date": "2026-04-21",
+          "close": 0.884
+        },
+        {
+          "date": "2026-04-22",
+          "close": 0.908
+        },
+        {
+          "date": "2026-04-23",
+          "close": 0.897
+        },
+        {
+          "date": "2026-04-24",
+          "close": 0.91
+        },
+        {
+          "date": "2026-04-27",
+          "close": 0.953
+        },
+        {
+          "date": "2026-04-28",
+          "close": 0.941
+        },
+        {
+          "date": "2026-04-29",
+          "close": 0.94
+        },
+        {
+          "date": "2026-04-30",
+          "close": 0.983
+        },
+        {
+          "date": "2026-05-06",
+          "close": 1.042
+        },
+        {
+          "date": "2026-05-07",
+          "close": 1.054
+        },
+        {
+          "date": "2026-05-08",
+          "close": 1.026
+        },
+        {
+          "date": "2026-05-11",
+          "close": 1.092
+        },
+        {
+          "date": "2026-05-12",
+          "close": 1.097
+        },
+        {
+          "date": "2026-05-13",
+          "close": 1.127
+        },
+        {
+          "date": "2026-05-14",
+          "close": 1.1
+        },
+        {
+          "date": "2026-05-15",
+          "close": 1.092
+        },
+        {
+          "date": "2026-05-18",
+          "close": 1.107
+        },
+        {
+          "date": "2026-05-19",
+          "close": 1.149
+        },
+        {
+          "date": "2026-05-20",
+          "close": 1.201
+        },
+        {
+          "date": "2026-05-21",
+          "close": 1.159
+        },
+        {
+          "date": "2026-05-22",
+          "close": 1.186
+        },
+        {
+          "date": "2026-05-25",
+          "close": 1.269
+        },
+        {
+          "date": "2026-05-26",
+          "close": 1.256
+        },
+        {
+          "date": "2026-05-27",
+          "close": 1.227
+        },
+        {
+          "date": "2026-05-28",
+          "close": 1.237
+        },
+        {
+          "date": "2026-05-29",
+          "close": 1.164
+        },
+        {
+          "date": "2026-06-01",
+          "close": 1.102
+        },
+        {
+          "date": "2026-06-02",
+          "close": 1.119
+        },
+        {
+          "date": "2026-06-03",
+          "close": 1.158
+        },
+        {
+          "date": "2026-06-04",
+          "close": 1.18
+        },
+        {
+          "date": "2026-06-05",
+          "close": 1.121
+        },
+        {
+          "date": "2026-06-08",
+          "close": 1.068
+        },
+        {
+          "date": "2026-06-09",
+          "close": 1.123
+        },
+        {
+          "date": "2026-06-10",
+          "close": 1.114
+        },
+        {
+          "date": "2026-06-11",
+          "close": 1.122
+        },
+        {
+          "date": "2026-06-12",
+          "close": 1.114
+        },
+        {
+          "date": "2026-06-15",
+          "close": 1.179
+        },
+        {
+          "date": "2026-06-16",
+          "close": 1.187
+        },
+        {
+          "date": "2026-06-17",
+          "close": 1.261
+        },
+        {
+          "date": "2026-06-18",
+          "close": 1.317
+        },
+        {
+          "date": "2026-06-22",
+          "close": 1.355
+        },
+        {
+          "date": "2026-06-23",
+          "close": 1.334
+        },
+        {
+          "date": "2026-06-24",
+          "close": 1.409
+        },
+        {
+          "date": "2026-06-25",
+          "close": 1.48
+        },
+        {
+          "date": "2026-06-26",
+          "close": 1.462
+        }
+      ],
+      "return_1d": -0.012162162162162149,
+      "return_5d": 0.11009870918754738,
+      "return_20d": 0.1818916734033953,
+      "vol_20d": 0.03888696255759465,
+      "expected_return_30d": 0.10964386088721015,
+      "predicted_volatility": 0.21299266585653376,
+      "predicted_downside": 0.04717596631618468,
+      "regime_probs": {
+        "bear": 0.4473198223660609,
+        "sideway": 0.3890685491573809,
+        "bull": 0.1636116284765583
+      },
+      "rollout_path": [
+        {
+          "horizon": 1,
+          "predicted_return": 0.003654795362907005,
+          "predicted_close": 1.4673433108205698
+        },
+        {
+          "horizon": 2,
+          "predicted_return": 0.00730959072581401,
+          "predicted_close": 1.47268662164114
+        },
+        {
+          "horizon": 3,
+          "predicted_return": 0.010964386088721016,
+          "predicted_close": 1.47802993246171
+        },
+        {
+          "horizon": 4,
+          "predicted_return": 0.01461918145162802,
+          "predicted_close": 1.4833732432822802
+        },
+        {
+          "horizon": 5,
+          "predicted_return": 0.018273976814535024,
+          "predicted_close": 1.4887165541028502
+        },
+        {
+          "horizon": 6,
+          "predicted_return": 0.021928772177442032,
+          "predicted_close": 1.49405986492342
+        },
+        {
+          "horizon": 7,
+          "predicted_return": 0.025583567540349034,
+          "predicted_close": 1.4994031757439903
+        },
+        {
+          "horizon": 8,
+          "predicted_return": 0.02923836290325604,
+          "predicted_close": 1.5047464865645601
+        },
+        {
+          "horizon": 9,
+          "predicted_return": 0.03289315826616304,
+          "predicted_close": 1.5100897973851304
+        },
+        {
+          "horizon": 10,
+          "predicted_return": 0.03654795362907005,
+          "predicted_close": 1.5154331082057004
+        },
+        {
+          "horizon": 11,
+          "predicted_return": 0.04020274899197705,
+          "predicted_close": 1.5207764190262703
+        },
+        {
+          "horizon": 12,
+          "predicted_return": 0.043857544354884065,
+          "predicted_close": 1.5261197298468405
+        },
+        {
+          "horizon": 13,
+          "predicted_return": 0.04751233971779106,
+          "predicted_close": 1.5314630406674103
+        },
+        {
+          "horizon": 14,
+          "predicted_return": 0.05116713508069807,
+          "predicted_close": 1.5368063514879806
+        },
+        {
+          "horizon": 15,
+          "predicted_return": 0.054821930443605074,
+          "predicted_close": 1.5421496623085507
+        },
+        {
+          "horizon": 16,
+          "predicted_return": 0.05847672580651208,
+          "predicted_close": 1.5474929731291205
+        },
+        {
+          "horizon": 17,
+          "predicted_return": 0.062131521169419085,
+          "predicted_close": 1.5528362839496908
+        },
+        {
+          "horizon": 18,
+          "predicted_return": 0.06578631653232608,
+          "predicted_close": 1.5581795947702606
+        },
+        {
+          "horizon": 19,
+          "predicted_return": 0.0694411118952331,
+          "predicted_close": 1.5635229055908308
+        },
+        {
+          "horizon": 20,
+          "predicted_return": 0.0730959072581401,
+          "predicted_close": 1.5688662164114007
+        },
+        {
+          "horizon": 21,
+          "predicted_return": 0.07675070262104709,
+          "predicted_close": 1.5742095272319707
+        },
+        {
+          "horizon": 22,
+          "predicted_return": 0.0804054979839541,
+          "predicted_close": 1.579552838052541
+        },
+        {
+          "horizon": 23,
+          "predicted_return": 0.08406029334686112,
+          "predicted_close": 1.5848961488731108
+        },
+        {
+          "horizon": 24,
+          "predicted_return": 0.08771508870976813,
+          "predicted_close": 1.590239459693681
+        },
+        {
+          "horizon": 25,
+          "predicted_return": 0.09136988407267513,
+          "predicted_close": 1.595582770514251
+        },
+        {
+          "horizon": 26,
+          "predicted_return": 0.09502467943558213,
+          "predicted_close": 1.600926081334821
+        },
+        {
+          "horizon": 27,
+          "predicted_return": 0.09867947479848914,
+          "predicted_close": 1.606269392155391
+        },
+        {
+          "horizon": 28,
+          "predicted_return": 0.10233427016139614,
+          "predicted_close": 1.611612702975961
+        },
+        {
+          "horizon": 29,
+          "predicted_return": 0.10598906552430315,
+          "predicted_close": 1.6169560137965313
+        },
+        {
+          "horizon": 30,
+          "predicted_return": 0.10964386088721015,
+          "predicted_close": 1.6222993246171011
+        }
+      ],
+      "token_summary": {
+        "temporal_token": 245,
+        "cross_asset_token": 245
+      },
+      "score": 0.6657774593243733,
+      "reasons": [
+        "predicted upside ranks high",
+        "downside estimate is controlled",
+        "sector matches the selected strategy",
+        "ETF exposure improves resilience"
+      ],
+      "rank": 20
     }
   ],
   "all_assets": [

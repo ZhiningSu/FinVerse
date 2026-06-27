@@ -4,14 +4,15 @@ type AssetTableProps = {
   assets: AssetRecommendation[];
   onSelect: (ticker: string) => void;
   language: Language;
+  selectedTicker?: string;
 };
 
 const fmtPct = (value: number) => `${(value * 100).toFixed(2)}%`;
 
 const COPY = {
   en: {
-    eyebrow: "Top-K Universe",
-    title: "Today's stock / fund picks",
+    eyebrow: "Top-20 Universe",
+    title: "Today's Top 20 stock / fund picks",
     helper: "Click ticker to inspect rollout details",
     rank: "Rank",
     ticker: "Ticker",
@@ -26,8 +27,8 @@ const COPY = {
     fallback: "balanced score",
   },
   zh: {
-    eyebrow: "Top-K 资产池",
-    title: "今日中国股票 / 基金推荐",
+    eyebrow: "Top-20 资产池",
+    title: "今日 Top 20 中国股票 / 基金推荐",
     helper: "点击代码查看 rollout 详情",
     rank: "排名",
     ticker: "代码",
@@ -63,7 +64,7 @@ function typeLabel(type: AssetRecommendation["type"], language: Language) {
   return type === "etf" ? COPY.en.etf : COPY.en.stock;
 }
 
-export function AssetTable({ assets, onSelect, language }: AssetTableProps) {
+export function AssetTable({ assets, onSelect, language, selectedTicker }: AssetTableProps) {
   const copy = COPY[language];
   return (
     <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/25">
@@ -74,8 +75,8 @@ export function AssetTable({ assets, onSelect, language }: AssetTableProps) {
         </div>
         <p className="text-sm text-slate-400">{copy.helper}</p>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-white/10">
-        <table className="w-full border-collapse text-left text-sm">
+      <div className="max-h-[820px] overflow-auto rounded-2xl border border-white/10">
+        <table className="min-w-[980px] w-full border-collapse text-left text-sm">
           <thead className="bg-white/[0.06] text-xs uppercase tracking-[0.18em] text-slate-400">
             <tr>
               <th className="px-4 py-3">{copy.rank}</th>
@@ -89,28 +90,34 @@ export function AssetTable({ assets, onSelect, language }: AssetTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/10">
-            {assets.map((asset) => (
-              <tr key={asset.ticker} className="bg-slate-950/20 transition hover:bg-cyan-300/10">
-                <td className="px-4 py-4 text-slate-400">#{asset.rank}</td>
-                <td className="px-4 py-4">
-                  <button
-                    className="font-semibold text-cyan-200 underline-offset-4 hover:text-cyan-100 hover:underline"
-                    onClick={() => onSelect(asset.ticker)}
-                  >
-                    {asset.ticker}
-                  </button>
-                  <p className="text-xs text-slate-500">{typeLabel(asset.type, language)}</p>
-                </td>
-                <td className="max-w-[9rem] px-4 py-4 text-slate-200">
-                  <span className="line-clamp-2">{asset.name}</span>
-                </td>
-                <td className="px-4 py-4 text-slate-300">{asset.sector}</td>
-                <td className="px-4 py-4 text-white">{asset.score.toFixed(3)}</td>
-                <td className="px-4 py-4 text-teal-200">{fmtPct(asset.expected_return_30d)}</td>
-                <td className="px-4 py-4 text-amber-100">{fmtPct(asset.predicted_volatility)}</td>
-                <td className="px-4 py-4 text-slate-400">{reasonLabel(asset.reasons?.[0], language, copy.fallback)}</td>
-              </tr>
-            ))}
+            {assets.map((asset) => {
+              const selected = selectedTicker?.toUpperCase() === asset.ticker.toUpperCase();
+              return (
+                <tr
+                  key={asset.ticker}
+                  className={`${selected ? "bg-cyan-300/15 ring-1 ring-inset ring-cyan-300/30" : "bg-slate-950/20"} transition hover:bg-cyan-300/10`}
+                >
+                  <td className="px-4 py-4 text-slate-400">#{asset.rank}</td>
+                  <td className="px-4 py-4">
+                    <button
+                      className="font-semibold text-cyan-200 underline-offset-4 hover:text-cyan-100 hover:underline"
+                      onClick={() => onSelect(asset.ticker)}
+                    >
+                      {asset.ticker}
+                    </button>
+                    <p className="text-xs text-slate-500">{typeLabel(asset.type, language)}</p>
+                  </td>
+                  <td className="max-w-[9rem] px-4 py-4 text-slate-200">
+                    <span className="line-clamp-2">{asset.name}</span>
+                  </td>
+                  <td className="px-4 py-4 text-slate-300">{asset.sector}</td>
+                  <td className="px-4 py-4 text-white">{asset.score.toFixed(3)}</td>
+                  <td className="px-4 py-4 text-teal-200">{fmtPct(asset.expected_return_30d)}</td>
+                  <td className="px-4 py-4 text-amber-100">{fmtPct(asset.predicted_volatility)}</td>
+                  <td className="px-4 py-4 text-slate-400">{reasonLabel(asset.reasons?.[0], language, copy.fallback)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

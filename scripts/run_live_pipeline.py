@@ -17,7 +17,7 @@ def main() -> None:
     parser.add_argument("--market", choices=["us", "cn"], default="us")
     parser.add_argument("--trade-date", default=None, help="Optional YYYY-MM-DD date. Defaults to latest raw date.")
     parser.add_argument("--force-fetch", action="store_true")
-    parser.add_argument("--top-k", type=int, default=12)
+    parser.add_argument("--top-k", type=int, default=20)
     parser.add_argument("--output-dir", default="outputs/live")
     parser.add_argument("--data-live-dir", default="data/live")
     args = parser.parse_args()

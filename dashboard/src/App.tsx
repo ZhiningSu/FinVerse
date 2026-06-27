@@ -5,7 +5,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/zh" replace />} />
+        <Route path="/" element={<Navigate to="/en" replace />} />
         <Route path="/zh" element={<Home initialMarket="cn" language="zh" />} />
         <Route path="/en" element={<Home initialMarket="us" language="en" />} />
         <Route path="/other" element={<div className="text-center text-xl">Other Page - Coming Soon</div>} />

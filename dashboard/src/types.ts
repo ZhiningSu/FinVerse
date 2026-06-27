@@ -48,6 +48,22 @@ export type AssetRecommendation = {
   reasons: string[];
 };
 
+export type IndustryRecommendation = {
+  rank: number;
+  sector: string;
+  score: number;
+  news_score: number;
+  news_count: number;
+  macro_score: number;
+  avg_expected_return_30d: number;
+  avg_risk: number;
+  momentum_20d: number;
+  representative_assets: Array<{ ticker: string; name: string; type: string }>;
+  rationale: string[];
+  news_source: string;
+  sample_headlines: string[];
+};
+
 export type RecommendationResponse = {
   market: Market;
   language: Language;
@@ -55,6 +71,7 @@ export type RecommendationResponse = {
   last_updated_at: string;
   selected_strategy: Strategy;
   market_state: MarketState;
+  top_industries: IndustryRecommendation[];
   top_assets: AssetRecommendation[];
   mode: string;
 };

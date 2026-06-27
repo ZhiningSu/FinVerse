@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Activity, BrainCircuit, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AssetTable } from "@/components/AssetTable";
+import { IndustryPanel } from "@/components/IndustryPanel";
 import { MetricCard } from "@/components/MetricCard";
 import { PipelinePanel } from "@/components/PipelinePanel";
 import { RegimeGauge } from "@/components/RegimeGauge";
@@ -242,6 +243,10 @@ export default function Home({ initialMarket, language }: HomeProps) {
             </div>
           </div>
           <RegimeGauge probs={market.regime_probs} language={language} />
+        </section>
+
+        <section className="mt-6">
+          <IndustryPanel industries={recommendation.top_industries ?? []} language={language} />
         </section>
 
         <section className="mt-6 grid items-start gap-6 xl:grid-cols-[1.35fr_0.95fr]">

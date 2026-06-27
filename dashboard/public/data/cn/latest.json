@@ -1,14 +1,14 @@
 {
-  "run_id": "e66b58bd-cc72-47a1-86c4-8ee407211f78",
+  "run_id": "4a24318d-7726-4112-8375-663db603cfaf",
   "market": "cn",
   "language": "zh",
   "trade_date": "2026-06-26",
-  "last_updated_at": "2026-06-27T13:58:05+00:00",
+  "last_updated_at": "2026-06-27T14:51:30+00:00",
   "mode": "heuristic_adapter",
   "source": "eastmoney",
   "model_checkpoint": "outputs/paper_experiments/finverse/best_checkpoint.pt",
   "pipeline_status": {
-    "run_id": "e66b58bd-cc72-47a1-86c4-8ee407211f78",
+    "run_id": "4a24318d-7726-4112-8375-663db603cfaf",
     "stages": [
       {
         "name": "fetch",
@@ -38,6 +38,12 @@
         "name": "ranking",
         "status": "success",
         "message": "ranked 50 assets",
+        "duration_sec": 0.0
+      },
+      {
+        "name": "industry_focus",
+        "status": "success",
+        "message": "selected 5 industries",
         "duration_sec": 0.0
       },
       {
@@ -75,6 +81,189 @@
       "nearest_historical_regime": "Bear"
     }
   },
+  "top_industries": [
+    {
+      "sector": "公用事业",
+      "score": 0.7419075074600949,
+      "news_score": 0.0,
+      "news_count": 0,
+      "macro_score": 0.7143548879357438,
+      "avg_expected_return_30d": -0.006812913025971296,
+      "avg_risk": 0.06085771318484421,
+      "momentum_20d": -0.020940484937545967,
+      "representative_assets": [
+        {
+          "ticker": "600900.SH",
+          "name": "长江电力",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "macro regime favors this industry",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "neutral",
+      "sample_headlines": [],
+      "rank": 1
+    },
+    {
+      "sector": "宽基ETF",
+      "score": 0.6749002093902758,
+      "news_score": 0.0,
+      "news_count": 0,
+      "macro_score": 0.7143548879357438,
+      "avg_expected_return_30d": 0.014098654890360005,
+      "avg_risk": 0.12783037863990496,
+      "momentum_20d": 0.03410070102030435,
+      "representative_assets": [
+        {
+          "ticker": "510300.SH",
+          "name": "沪深300ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "510500.SH",
+          "name": "中证500ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "588000.SH",
+          "name": "科创50ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "159915.SZ",
+          "name": "创业板ETF",
+          "type": "etf"
+        }
+      ],
+      "rationale": [
+        "macro regime favors this industry",
+        "recent sector momentum is strong"
+      ],
+      "news_source": "neutral",
+      "sample_headlines": [],
+      "rank": 2
+    },
+    {
+      "sector": "行业ETF",
+      "score": 0.6458029359105077,
+      "news_score": 0.0,
+      "news_count": 0,
+      "macro_score": 0.7143548879357438,
+      "avg_expected_return_30d": 0.005997058760509585,
+      "avg_risk": 0.1314786986911131,
+      "momentum_20d": 0.012067158975160216,
+      "representative_assets": [
+        {
+          "ticker": "512170.SH",
+          "name": "医疗ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "512000.SH",
+          "name": "券商ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "512880.SH",
+          "name": "证券ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "512760.SH",
+          "name": "芯片ETF",
+          "type": "etf"
+        }
+      ],
+      "rationale": [
+        "macro regime favors this industry",
+        "recent sector momentum is strong"
+      ],
+      "news_source": "neutral",
+      "sample_headlines": [],
+      "rank": 3
+    },
+    {
+      "sector": "医药",
+      "score": 0.6445079932157685,
+      "news_score": 0.0,
+      "news_count": 0,
+      "macro_score": 0.7143548879357438,
+      "avg_expected_return_30d": -0.005918681195408306,
+      "avg_risk": 0.11282366758528381,
+      "momentum_20d": -0.009908219656436595,
+      "representative_assets": [
+        {
+          "ticker": "603259.SH",
+          "name": "药明康德",
+          "type": "stock"
+        },
+        {
+          "ticker": "600276.SH",
+          "name": "恒瑞医药",
+          "type": "stock"
+        },
+        {
+          "ticker": "300760.SZ",
+          "name": "迈瑞医疗",
+          "type": "stock"
+        },
+        {
+          "ticker": "300015.SZ",
+          "name": "爱尔眼科",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "macro regime favors this industry",
+        "recent sector momentum is strong",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "neutral",
+      "sample_headlines": [],
+      "rank": 4
+    },
+    {
+      "sector": "消费",
+      "score": 0.6399836039048461,
+      "news_score": 0.0,
+      "news_count": 0,
+      "macro_score": 0.7143548879357438,
+      "avg_expected_return_30d": -0.02270858313833065,
+      "avg_risk": 0.09552670715316199,
+      "momentum_20d": -0.03888479476962741,
+      "representative_assets": [
+        {
+          "ticker": "000651.SZ",
+          "name": "格力电器",
+          "type": "stock"
+        },
+        {
+          "ticker": "600887.SH",
+          "name": "伊利股份",
+          "type": "stock"
+        },
+        {
+          "ticker": "000333.SZ",
+          "name": "美的集团",
+          "type": "stock"
+        },
+        {
+          "ticker": "600519.SH",
+          "name": "贵州茅台",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "macro regime favors this industry",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "neutral",
+      "sample_headlines": [],
+      "rank": 5
+    }
+  ],
   "top_assets": [
     {
       "ticker": "603259.SH",

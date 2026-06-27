@@ -7,6 +7,7 @@ import json
 import math
 import time
 import uuid
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -29,7 +30,38 @@ DEFAULT_LIVE_DIR = PROJECT_ROOT / "outputs" / "live"
 DEFAULT_DATA_LIVE_DIR = PROJECT_ROOT / "data" / "live"
 STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
 YAHOO_CHART_BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
+YAHOO_RSS_URL = "https://feeds.finance.yahoo.com/rss/2.0/headline"
 HTTP_HEADERS = {"User-Agent": "FinVerse-Dashboard/0.1 (+https://github.com/ZhiningSu/FinVerse)"}
+POSITIVE_NEWS_TERMS = {
+    "beat",
+    "beats",
+    "growth",
+    "upgrade",
+    "upgrades",
+    "surge",
+    "rally",
+    "strong",
+    "profit",
+    "record",
+    "outperform",
+    "bullish",
+    "raises",
+}
+NEGATIVE_NEWS_TERMS = {
+    "miss",
+    "misses",
+    "downgrade",
+    "downgrades",
+    "fall",
+    "falls",
+    "drop",
+    "weak",
+    "loss",
+    "lawsuit",
+    "probe",
+    "bearish",
+    "cuts",
+}
 
 
 @dataclass(frozen=True)
@@ -139,7 +171,7 @@ def fetch_stooq_symbol(symbol: str, retries: int = 1, sleep_base: float = 0.4) -
     params = {"s": stooq_symbol(symbol), "i": "d"}
     for attempt in range(retries):
         try:
-            resp = requests.get(STOOQ_BASE_URL, headers=HTTP_HEADERS, params=params, timeout=8)
+            resp = requests.get(STOOQ_BASE_URL, headers=HTTP_HEADERS, params=params, timeout=3)
             if resp.status_code != 200 or not resp.text.strip().startswith("Date,"):
                 time.sleep(sleep_base * (2 ** attempt))
                 continue
@@ -161,7 +193,7 @@ def fetch_yahoo_chart_symbol(symbol: str, retries: int = 1, sleep_base: float = 
     headers = {"User-Agent": "Mozilla/5.0"}
     for attempt in range(retries):
         try:
-            resp = requests.get(url, headers=headers, params=params, timeout=8)
+            resp = requests.get(url, headers=headers, params=params, timeout=5)
             if resp.status_code != 200:
                 time.sleep(sleep_base * (2 ** attempt))
                 continue
@@ -199,6 +231,104 @@ def fetch_yahoo_chart_symbol(symbol: str, retries: int = 1, sleep_base: float = 
 
 def fetch_us_online_symbol(symbol: str) -> dict[str, Any] | None:
     return fetch_stooq_symbol(symbol) or fetch_yahoo_chart_symbol(symbol)
+
+
+def headline_sentiment(text: str) -> float:
+    words = {word.strip(".,:;!?()[]{}\"'").lower() for word in text.split()}
+    pos = len(words & POSITIVE_NEWS_TERMS)
+    neg = len(words & NEGATIVE_NEWS_TERMS)
+    if pos == 0 and neg == 0:
+        return 0.0
+    return _clip((pos - neg) / max(pos + neg, 1), -1.0, 1.0)
+
+
+def parse_yahoo_rss_sentiment(xml_text: str) -> tuple[float, int, list[str]]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return 0.0, 0, []
+    scores = []
+    headlines = []
+    for item in root.findall(".//item")[:8]:
+        title = (item.findtext("title") or "").strip()
+        desc = (item.findtext("description") or "").strip()
+        text = f"{title} {desc}".strip()
+        if not text:
+            continue
+        scores.append(headline_sentiment(text))
+        if title:
+            headlines.append(title)
+    if not scores:
+        return 0.0, 0, headlines
+    return float(np.mean(scores)), len(scores), headlines[:3]
+
+
+def fetch_yahoo_rss_sentiment(symbol: str) -> tuple[float, int, list[str]]:
+    try:
+        resp = requests.get(
+            YAHOO_RSS_URL,
+            headers=HTTP_HEADERS,
+            params={"s": symbol.upper(), "region": "US", "lang": "en-US"},
+            timeout=3,
+        )
+        if resp.status_code != 200:
+            return 0.0, 0, []
+        return parse_yahoo_rss_sentiment(resp.text)
+    except Exception:
+        return 0.0, 0, []
+
+
+def collect_news_signals(
+    market: str,
+    ranked_assets: list[dict[str, Any]],
+    fetch_online: bool,
+) -> dict[str, dict[str, Any]]:
+    """Return sector-level news sentiment from local RSS cache or online RSS."""
+    if market != "us":
+        return {}
+    per_sector: dict[str, list[float]] = {}
+    counts: dict[str, int] = {}
+    headlines: dict[str, list[str]] = {}
+    local_dir = PROJECT_ROOT / "data" / "raw" / "news" / "yahoo_rss"
+    local_symbols = set()
+
+    for asset in ranked_assets[:60]:
+        symbol = asset["ticker"]
+        sector = asset["sector"]
+        sentiment, count, items = 0.0, 0, []
+        local_file = local_dir / f"{symbol}.xml"
+        if local_file.exists():
+            sentiment, count, items = parse_yahoo_rss_sentiment(local_file.read_text(encoding="utf-8", errors="ignore"))
+            local_symbols.add(symbol)
+        if count == 0:
+            continue
+        per_sector.setdefault(sector, []).append(sentiment)
+        counts[sector] = counts.get(sector, 0) + count
+        headlines.setdefault(sector, []).extend(items[:2])
+
+    if fetch_online:
+        pending = [asset for asset in ranked_assets[:40] if asset["ticker"] not in local_symbols]
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {executor.submit(fetch_yahoo_rss_sentiment, asset["ticker"]): asset for asset in pending}
+            for future in as_completed(futures):
+                asset = futures[future]
+                sentiment, count, items = future.result()
+                if count == 0:
+                    continue
+                sector = asset["sector"]
+                per_sector.setdefault(sector, []).append(sentiment)
+                counts[sector] = counts.get(sector, 0) + count
+                headlines.setdefault(sector, []).extend(items[:2])
+
+    return {
+        sector: {
+            "score": float(np.mean(scores)),
+            "count": counts.get(sector, 0),
+            "headlines": headlines.get(sector, [])[:3],
+            "source": "yahoo_finance_rss",
+        }
+        for sector, scores in per_sector.items()
+    }
 
 
 def fetch_stooq_universe(
@@ -479,6 +609,95 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
     return ranked[:top_k], ranked
 
 
+def sector_macro_fit(sector: str, market_state: dict[str, Any]) -> float:
+    probs = market_state["regime_probs"]
+    vol = market_state["market_vol_20d"]
+    defensive = {"Utilities", "Healthcare", "Consumer Staples", "Market ETF", "Sector ETF", "医药", "消费", "公用事业", "宽基ETF", "行业ETF"}
+    growth = {"Technology", "Communication Services", "Consumer Discretionary", "科技", "新能源", "通信"}
+    financial = {"Financials", "金融"}
+    score = 0.50
+    if sector in defensive:
+        score += 0.28 * probs["bear"] + 0.12 * min(vol / 0.03, 1.0)
+    if sector in growth:
+        score += 0.28 * probs["bull"] - 0.10 * probs["bear"]
+    if sector in financial:
+        score += 0.10 * probs["sideway"] + 0.08 * probs["bull"]
+    return _clip(score, 0.0, 1.0)
+
+
+def industry_rationale(news_norm: float, macro_score: float, return_score: float, risk_score: float) -> list[str]:
+    reasons = []
+    if news_norm >= 0.56:
+        reasons.append("news sentiment is supportive")
+    if macro_score >= 0.58:
+        reasons.append("macro regime favors this industry")
+    if return_score >= 0.62:
+        reasons.append("recent sector momentum is strong")
+    if risk_score >= 0.62:
+        reasons.append("risk profile is relatively controlled")
+    return reasons or ["balanced news, macro, return, and risk signals"]
+
+
+def recommend_industries(
+    ranked_assets: list[dict[str, Any]],
+    market_state: dict[str, Any],
+    market: str,
+    fetch_news: bool,
+    top_k: int = 5,
+) -> list[dict[str, Any]]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for asset in ranked_assets:
+        groups.setdefault(asset["sector"], []).append(asset)
+    sectors = list(groups)
+    if not sectors:
+        return []
+
+    news_signals = collect_news_signals(market, ranked_assets, fetch_online=fetch_news)
+    avg_scores = np.asarray([np.mean([asset["score"] for asset in groups[sector]]) for sector in sectors], dtype=float)
+    avg_returns = np.asarray([np.mean([asset["expected_return_30d"] for asset in groups[sector]]) for sector in sectors], dtype=float)
+    avg_risks = np.asarray([np.mean([asset["predicted_volatility"] for asset in groups[sector]]) for sector in sectors], dtype=float)
+    momentum = np.asarray([np.mean([asset["return_20d"] for asset in groups[sector]]) for sector in sectors], dtype=float)
+
+    return_score = 0.65 * _minmax(avg_returns, True) + 0.35 * _minmax(momentum, True)
+    risk_score = _minmax(avg_risks, False)
+    recommendations = []
+    for idx, sector in enumerate(sectors):
+        news = news_signals.get(sector, {"score": 0.0, "count": 0, "headlines": [], "source": "neutral"})
+        news_norm = float((news["score"] + 1.0) / 2.0)
+        macro_score = sector_macro_fit(sector, market_state)
+        composite = (
+            0.34 * avg_scores[idx]
+            + 0.22 * return_score[idx]
+            + 0.18 * risk_score[idx]
+            + 0.14 * news_norm
+            + 0.12 * macro_score
+        )
+        representatives = sorted(groups[sector], key=lambda asset: asset["score"], reverse=True)[:4]
+        recommendations.append(
+            {
+                "sector": sector,
+                "score": float(composite),
+                "news_score": float(news["score"]),
+                "news_count": int(news["count"]),
+                "macro_score": float(macro_score),
+                "avg_expected_return_30d": float(avg_returns[idx]),
+                "avg_risk": float(avg_risks[idx]),
+                "momentum_20d": float(momentum[idx]),
+                "representative_assets": [
+                    {"ticker": asset["ticker"], "name": asset["name"], "type": asset["type"]}
+                    for asset in representatives
+                ],
+                "rationale": industry_rationale(news_norm, macro_score, float(return_score[idx]), float(risk_score[idx])),
+                "news_source": news["source"],
+                "sample_headlines": news.get("headlines", []),
+            }
+        )
+    recommendations.sort(key=lambda item: item["score"], reverse=True)
+    for rank, item in enumerate(recommendations[:top_k], start=1):
+        item["rank"] = rank
+    return recommendations[:top_k]
+
+
 def diagnostics_from_outputs(model_outputs: list[dict[str, Any]], market_state: dict[str, Any]) -> dict[str, Any]:
     latent_map = []
     for row in model_outputs[:120]:
@@ -542,6 +761,15 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
     top_assets, all_assets = rank_assets(model_outputs, strategy, config.top_k)
     stage("ranking", "success", f"ranked {len(all_assets)} assets")
 
+    top_industries = recommend_industries(
+        all_assets,
+        market_state,
+        market=market,
+        fetch_news=force_fetch or config.fetch_online,
+        top_k=5,
+    )
+    stage("industry_focus", "success", f"selected {len(top_industries)} industries")
+
     recommendation = {
         "run_id": run_id,
         "market": market,
@@ -554,6 +782,7 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
         "pipeline_status": {"run_id": run_id, "stages": stages},
         "selected_strategy": strategy,
         "market_state": market_state,
+        "top_industries": top_industries,
         "top_assets": top_assets,
         "all_assets": all_assets,
         "diagnostics": diagnostics_from_outputs(model_outputs, market_state),

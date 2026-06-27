@@ -1,14 +1,14 @@
 {
-  "run_id": "da6d30ae-cc26-413b-a506-a96f809fd0cd",
+  "run_id": "88caf754-d29e-4c34-9b88-9805e8ad77a9",
   "market": "us",
   "language": "en",
   "trade_date": "2026-06-26",
-  "last_updated_at": "2026-06-27T13:58:03+00:00",
+  "last_updated_at": "2026-06-27T14:52:39+00:00",
   "mode": "heuristic_adapter",
   "source": "stooq_yahoo_chart_fallback",
   "model_checkpoint": "outputs/paper_experiments/finverse/best_checkpoint.pt",
   "pipeline_status": {
-    "run_id": "da6d30ae-cc26-413b-a506-a96f809fd0cd",
+    "run_id": "88caf754-d29e-4c34-9b88-9805e8ad77a9",
     "stages": [
       {
         "name": "fetch",
@@ -38,6 +38,12 @@
         "name": "ranking",
         "status": "success",
         "message": "ranked 90 assets",
+        "duration_sec": 0.0
+      },
+      {
+        "name": "industry_focus",
+        "status": "success",
+        "message": "selected 5 industries",
         "duration_sec": 0.0
       },
       {
@@ -75,6 +81,230 @@
       "nearest_historical_regime": "Sideway"
     }
   },
+  "top_industries": [
+    {
+      "sector": "Utilities",
+      "score": 0.8036507952692598,
+      "news_score": 0.1875,
+      "news_count": 64,
+      "macro_score": 0.6551300207506526,
+      "avg_expected_return_30d": 0.03432731549762187,
+      "avg_risk": 0.0712550810962039,
+      "momentum_20d": 0.04281702835318926,
+      "representative_assets": [
+        {
+          "ticker": "AEP",
+          "name": "American Electric Power",
+          "type": "stock"
+        },
+        {
+          "ticker": "SO",
+          "name": "Southern Company",
+          "type": "stock"
+        },
+        {
+          "ticker": "DUK",
+          "name": "Duke Energy",
+          "type": "stock"
+        },
+        {
+          "ticker": "SRE",
+          "name": "Sempra",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "news sentiment is supportive",
+        "macro regime favors this industry",
+        "recent sector momentum is strong",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "yahoo_finance_rss",
+      "sample_headlines": [
+        "How Is American Electric Power's Stock Performance Compared to Other Utility Stocks?",
+        "Peabody Energy Stock and More Coal Plays Rise on Trump’s $700 Million Industry Boost",
+        "Southern (SO) Valuation Check As Shares Edge Higher Without A Clear Catalyst"
+      ],
+      "rank": 1
+    },
+    {
+      "sector": "Healthcare",
+      "score": 0.7992337176701778,
+      "news_score": 0.125,
+      "news_count": 64,
+      "macro_score": 0.6551300207506526,
+      "avg_expected_return_30d": 0.06175939822461386,
+      "avg_risk": 0.10470854435705035,
+      "momentum_20d": 0.07486256146989945,
+      "representative_assets": [
+        {
+          "ticker": "ABBV",
+          "name": "AbbVie",
+          "type": "stock"
+        },
+        {
+          "ticker": "UNH",
+          "name": "UnitedHealth",
+          "type": "stock"
+        },
+        {
+          "ticker": "JNJ",
+          "name": "Johnson & Johnson",
+          "type": "stock"
+        },
+        {
+          "ticker": "ABT",
+          "name": "Abbott Laboratories",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "news sentiment is supportive",
+        "macro regime favors this industry",
+        "recent sector momentum is strong",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "yahoo_finance_rss",
+      "sample_headlines": [
+        "AbbVie (ABBV) Valuation Check After New Cancer And Migraine Drug Approvals",
+        "SCHD’s $85 Billion Strategy Now Concentrates 41 Percent of Your Money in Just Ten Stocks",
+        "Berkshire Hathaway Signals Post Buffett Shift With Delta Air Lines Bet"
+      ],
+      "rank": 2
+    },
+    {
+      "sector": "Financials",
+      "score": 0.7303356128954318,
+      "news_score": 0.22916666666666666,
+      "news_count": 48,
+      "macro_score": 0.5684236309104047,
+      "avg_expected_return_30d": 0.019598253102576707,
+      "avg_risk": 0.09355509659154701,
+      "momentum_20d": 0.06447294331092074,
+      "representative_assets": [
+        {
+          "ticker": "BAC",
+          "name": "Bank of America",
+          "type": "stock"
+        },
+        {
+          "ticker": "C",
+          "name": "Citigroup",
+          "type": "stock"
+        },
+        {
+          "ticker": "JPM",
+          "name": "JPMorgan Chase",
+          "type": "stock"
+        },
+        {
+          "ticker": "WFC",
+          "name": "Wells Fargo",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "news sentiment is supportive",
+        "recent sector momentum is strong",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "yahoo_finance_rss",
+      "sample_headlines": [
+        "Bank of America resets Broadcom stock price target after earnings",
+        "Big Money Powers the Biggest Sporting Event Ever",
+        "How The Weir Group (LSE:WEIR) Narrative Is Shifting As Analysts Rework Price Targets"
+      ],
+      "rank": 3
+    },
+    {
+      "sector": "Market ETF",
+      "score": 0.7061902243176088,
+      "news_score": 0.125,
+      "news_count": 32,
+      "macro_score": 0.6551300207506526,
+      "avg_expected_return_30d": -0.005529932264636483,
+      "avg_risk": 0.07207314264161978,
+      "momentum_20d": -0.006414691340550366,
+      "representative_assets": [
+        {
+          "ticker": "DIA",
+          "name": "SPDR Dow Jones Industrial Average ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "IWM",
+          "name": "iShares Russell 2000 ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "SPY",
+          "name": "SPDR S&P 500 ETF",
+          "type": "etf"
+        },
+        {
+          "ticker": "QQQ",
+          "name": "Invesco QQQ Trust",
+          "type": "etf"
+        }
+      ],
+      "rationale": [
+        "news sentiment is supportive",
+        "macro regime favors this industry",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "yahoo_finance_rss",
+      "sample_headlines": [
+        "The Dow's Split Personality: Why Some Winners Soar While Others Drag Down the Dow",
+        "Nasdaq Posts Worst Drop Since April 2025, S&P 500 And Dow Drop As Strong Jobs Data Ignites Rate Hike Bets — TSLA, GME, META, BA, MSTR, GOOGL In Focus",
+        "Top Wall Street Strategist: AI ‘Reality Check’ Is Coming as Bond Market Flashes Warning Signs"
+      ],
+      "rank": 4
+    },
+    {
+      "sector": "Consumer Staples",
+      "score": 0.6982950359409958,
+      "news_score": 0.20833333333333331,
+      "news_count": 64,
+      "macro_score": 0.6551300207506526,
+      "avg_expected_return_30d": -0.0002663695074677213,
+      "avg_risk": 0.08351340347132274,
+      "momentum_20d": -0.007910926704620319,
+      "representative_assets": [
+        {
+          "ticker": "KO",
+          "name": "Coca-Cola",
+          "type": "stock"
+        },
+        {
+          "ticker": "PG",
+          "name": "Procter & Gamble",
+          "type": "stock"
+        },
+        {
+          "ticker": "PEP",
+          "name": "PepsiCo",
+          "type": "stock"
+        },
+        {
+          "ticker": "PM",
+          "name": "Philip Morris",
+          "type": "stock"
+        }
+      ],
+      "rationale": [
+        "news sentiment is supportive",
+        "macro regime favors this industry",
+        "risk profile is relatively controlled"
+      ],
+      "news_source": "yahoo_finance_rss",
+      "sample_headlines": [
+        "Here's How Many Shares of Coca-Cola You'd Need for $10,000 in Yearly Dividends",
+        "Big Money Powers the Biggest Sporting Event Ever",
+        "Walmart (WMT) Invests $10.8M to Expand National Disaster Response Fleet"
+      ],
+      "rank": 5
+    }
+  ],
   "top_assets": [
     {
       "ticker": "BAC",

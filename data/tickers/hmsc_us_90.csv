@@ -1,0 +1,91 @@
+ticker,name,sector,type
+AAPL,Apple,Technology,stock
+MSFT,Microsoft,Technology,stock
+NVDA,NVIDIA,Technology,stock
+AVGO,Broadcom,Technology,stock
+ORCL,Oracle,Technology,stock
+CRM,Salesforce,Technology,stock
+AMD,Advanced Micro Devices,Technology,stock
+INTC,Intel,Technology,stock
+GOOGL,Alphabet,Communication Services,stock
+META,Meta Platforms,Communication Services,stock
+NFLX,Netflix,Communication Services,stock
+DIS,Walt Disney,Communication Services,stock
+TMUS,T-Mobile US,Communication Services,stock
+CMCSA,Comcast,Communication Services,stock
+VZ,Verizon,Communication Services,stock
+T,AT&T,Communication Services,stock
+AMZN,Amazon,Consumer Discretionary,stock
+TSLA,Tesla,Consumer Discretionary,stock
+HD,Home Depot,Consumer Discretionary,stock
+MCD,McDonald's,Consumer Discretionary,stock
+NKE,Nike,Consumer Discretionary,stock
+SBUX,Starbucks,Consumer Discretionary,stock
+LOW,Lowe's,Consumer Discretionary,stock
+BKNG,Booking Holdings,Consumer Discretionary,stock
+WMT,Walmart,Consumer Staples,stock
+COST,Costco,Consumer Staples,stock
+PG,Procter & Gamble,Consumer Staples,stock
+KO,Coca-Cola,Consumer Staples,stock
+PEP,PepsiCo,Consumer Staples,stock
+PM,Philip Morris,Consumer Staples,stock
+MDLZ,Mondelez,Consumer Staples,stock
+CL,Colgate-Palmolive,Consumer Staples,stock
+JPM,JPMorgan Chase,Financials,stock
+BAC,Bank of America,Financials,stock
+WFC,Wells Fargo,Financials,stock
+GS,Goldman Sachs,Financials,stock
+MS,Morgan Stanley,Financials,stock
+BLK,BlackRock,Financials,stock
+C,Citigroup,Financials,stock
+SCHW,Charles Schwab,Financials,stock
+LLY,Eli Lilly,Healthcare,stock
+UNH,UnitedHealth,Healthcare,stock
+JNJ,Johnson & Johnson,Healthcare,stock
+MRK,Merck,Healthcare,stock
+ABBV,AbbVie,Healthcare,stock
+PFE,Pfizer,Healthcare,stock
+TMO,Thermo Fisher Scientific,Healthcare,stock
+ABT,Abbott Laboratories,Healthcare,stock
+XOM,Exxon Mobil,Energy,stock
+CVX,Chevron,Energy,stock
+COP,ConocoPhillips,Energy,stock
+SLB,Schlumberger,Energy,stock
+EOG,EOG Resources,Energy,stock
+OXY,Occidental Petroleum,Energy,stock
+PSX,Phillips 66,Energy,stock
+MPC,Marathon Petroleum,Energy,stock
+CAT,Caterpillar,Industrials,stock
+GE,GE Aerospace,Industrials,stock
+HON,Honeywell,Industrials,stock
+UPS,United Parcel Service,Industrials,stock
+BA,Boeing,Industrials,stock
+RTX,RTX,Industrials,stock
+LMT,Lockheed Martin,Industrials,stock
+DE,Deere,Industrials,stock
+NEE,NextEra Energy,Utilities,stock
+DUK,Duke Energy,Utilities,stock
+SO,Southern Company,Utilities,stock
+AEP,American Electric Power,Utilities,stock
+EXC,Exelon,Utilities,stock
+SRE,Sempra,Utilities,stock
+D,Dominion Energy,Utilities,stock
+XEL,Xcel Energy,Utilities,stock
+PLD,Prologis,Real Estate,stock
+AMT,American Tower,Real Estate,stock
+EQIX,Equinix,Real Estate,stock
+SPG,Simon Property Group,Real Estate,stock
+CCI,Crown Castle,Real Estate,stock
+O,Realty Income,Real Estate,stock
+PSA,Public Storage,Real Estate,stock
+WELL,Welltower,Real Estate,stock
+SPY,SPDR S&P 500 ETF,Market ETF,etf
+QQQ,Invesco QQQ Trust,Market ETF,etf
+IWM,iShares Russell 2000 ETF,Market ETF,etf
+DIA,SPDR Dow Jones Industrial Average ETF,Market ETF,etf
+XLF,Financial Select Sector SPDR Fund,Sector ETF,etf
+XLK,Technology Select Sector SPDR Fund,Sector ETF,etf
+XLE,Energy Select Sector SPDR Fund,Sector ETF,etf
+XLV,Health Care Select Sector SPDR Fund,Sector ETF,etf
+XLY,Consumer Discretionary Select Sector SPDR Fund,Sector ETF,etf
+XLP,Consumer Staples Select Sector SPDR Fund,Sector ETF,etf

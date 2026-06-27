@@ -15,6 +15,7 @@ const COPY = {
     helper: "Click ticker to inspect rollout details",
     rank: "Rank",
     ticker: "Ticker",
+    name: "Name",
     sector: "Sector",
     score: "Score",
     ret30: "Ret@30",
@@ -30,6 +31,7 @@ const COPY = {
     helper: "点击代码查看 rollout 详情",
     rank: "排名",
     ticker: "代码",
+    name: "名称",
     sector: "行业",
     score: "评分",
     ret30: "30日收益",
@@ -78,6 +80,7 @@ export function AssetTable({ assets, onSelect, language }: AssetTableProps) {
             <tr>
               <th className="px-4 py-3">{copy.rank}</th>
               <th className="px-4 py-3">{copy.ticker}</th>
+              <th className="px-4 py-3">{copy.name}</th>
               <th className="px-4 py-3">{copy.sector}</th>
               <th className="px-4 py-3">{copy.score}</th>
               <th className="px-4 py-3">{copy.ret30}</th>
@@ -97,6 +100,9 @@ export function AssetTable({ assets, onSelect, language }: AssetTableProps) {
                     {asset.ticker}
                   </button>
                   <p className="text-xs text-slate-500">{typeLabel(asset.type, language)}</p>
+                </td>
+                <td className="max-w-[9rem] px-4 py-4 text-slate-200">
+                  <span className="line-clamp-2">{asset.name}</span>
                 </td>
                 <td className="px-4 py-4 text-slate-300">{asset.sector}</td>
                 <td className="px-4 py-4 text-white">{asset.score.toFixed(3)}</td>

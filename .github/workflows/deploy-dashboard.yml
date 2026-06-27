@@ -5,7 +5,13 @@ on:
     branches: [main]
     paths:
       - "dashboard/**"
+      - "live/**"
+      - "scripts/run_live_pipeline.py"
+      - "scripts/fetch_eastmoney.py"
+      - "data/tickers/**"
       - ".github/workflows/deploy-dashboard.yml"
+  schedule:
+    - cron: "30 22 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -27,6 +33,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install live data dependencies
+        working-directory: .
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy requests
+
+      - name: Generate daily market snapshots
+        working-directory: .
+        run: |
+          python scripts/run_live_pipeline.py --market us --top-k 12 --force-fetch
+          python scripts/run_live_pipeline.py --market cn --top-k 12 --force-fetch
+          mkdir -p dashboard/public/data/us dashboard/public/data/cn
+          cp outputs/live/us/latest.json dashboard/public/data/us/latest.json
+          cp outputs/live/cn/latest.json dashboard/public/data/cn/latest.json
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -37,7 +63,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Build static demo
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build static dashboard
         run: npm run build
         env:
           GITHUB_PAGES: "true"

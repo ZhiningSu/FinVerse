@@ -1,14 +1,14 @@
 {
-  "run_id": "db79b701-157d-4ba5-a9d1-9ff348a9f33b",
+  "run_id": "05c75aa9-9f6c-4837-a193-07f334b24f27",
   "market": "cn",
   "language": "zh",
   "trade_date": "2026-06-26",
-  "last_updated_at": "2026-06-27T08:59:32+00:00",
+  "last_updated_at": "2026-06-27T09:44:01+00:00",
   "mode": "heuristic_adapter",
   "source": "eastmoney",
   "model_checkpoint": "outputs/paper_experiments/finverse/best_checkpoint.pt",
   "pipeline_status": {
-    "run_id": "db79b701-157d-4ba5-a9d1-9ff348a9f33b",
+    "run_id": "05c75aa9-9f6c-4837-a193-07f334b24f27",
     "stages": [
       {
         "name": "fetch",
@@ -429,8 +429,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 117,
-        "cross_asset_token": 177
+        "temporal_token": 130,
+        "cross_asset_token": 69
       },
       "score": 0.8384484191003309,
       "reasons": [
@@ -793,8 +793,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 24,
-        "cross_asset_token": 181
+        "temporal_token": 253,
+        "cross_asset_token": 129
       },
       "score": 0.8127483400909175,
       "reasons": [
@@ -1157,8 +1157,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 184,
-        "cross_asset_token": 206
+        "temporal_token": 198,
+        "cross_asset_token": 245
       },
       "score": 0.8114293523213226,
       "reasons": [
@@ -1522,8 +1522,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 34,
-        "cross_asset_token": 217
+        "temporal_token": 91,
+        "cross_asset_token": 225
       },
       "score": 0.8029150386232558,
       "reasons": [
@@ -1886,8 +1886,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 55,
-        "cross_asset_token": 58
+        "temporal_token": 164,
+        "cross_asset_token": 101
       },
       "score": 0.7802687643458551,
       "reasons": [
@@ -2251,8 +2251,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 43,
-        "cross_asset_token": 58
+        "temporal_token": 17,
+        "cross_asset_token": 101
       },
       "score": 0.7784752461969927,
       "reasons": [
@@ -2616,8 +2616,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 46,
-        "cross_asset_token": 217
+        "temporal_token": 153,
+        "cross_asset_token": 225
       },
       "score": 0.7612305853688989,
       "reasons": [
@@ -2980,8 +2980,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 240,
-        "cross_asset_token": 206
+        "temporal_token": 118,
+        "cross_asset_token": 245
       },
       "score": 0.7608706538661606,
       "reasons": [
@@ -3346,8 +3346,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 78,
-        "cross_asset_token": 217
+        "temporal_token": 184,
+        "cross_asset_token": 225
       },
       "score": 0.7591178671709695,
       "reasons": [
@@ -3710,8 +3710,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 58,
-        "cross_asset_token": 206
+        "temporal_token": 75,
+        "cross_asset_token": 245
       },
       "score": 0.7577416298663878,
       "reasons": [
@@ -4076,7 +4076,7 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 98,
+        "temporal_token": 203,
         "cross_asset_token": 142
       },
       "score": 0.7172705260180564,
@@ -4439,8 +4439,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 29,
-        "cross_asset_token": 34
+        "temporal_token": 245,
+        "cross_asset_token": 141
       },
       "score": 0.7170871040642429,
       "reasons": [
@@ -4804,8 +4804,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 117,
-        "cross_asset_token": 177
+        "temporal_token": 130,
+        "cross_asset_token": 69
       },
       "score": 0.8384484191003309,
       "reasons": [
@@ -5168,8 +5168,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 24,
-        "cross_asset_token": 181
+        "temporal_token": 253,
+        "cross_asset_token": 129
       },
       "score": 0.8127483400909175,
       "reasons": [
@@ -5532,8 +5532,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 184,
-        "cross_asset_token": 206
+        "temporal_token": 198,
+        "cross_asset_token": 245
       },
       "score": 0.8114293523213226,
       "reasons": [
@@ -5897,8 +5897,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 34,
-        "cross_asset_token": 217
+        "temporal_token": 91,
+        "cross_asset_token": 225
       },
       "score": 0.8029150386232558,
       "reasons": [
@@ -6261,8 +6261,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 55,
-        "cross_asset_token": 58
+        "temporal_token": 164,
+        "cross_asset_token": 101
       },
       "score": 0.7802687643458551,
       "reasons": [
@@ -6626,8 +6626,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 43,
-        "cross_asset_token": 58
+        "temporal_token": 17,
+        "cross_asset_token": 101
       },
       "score": 0.7784752461969927,
       "reasons": [
@@ -6991,8 +6991,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 46,
-        "cross_asset_token": 217
+        "temporal_token": 153,
+        "cross_asset_token": 225
       },
       "score": 0.7612305853688989,
       "reasons": [
@@ -7355,8 +7355,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 240,
-        "cross_asset_token": 206
+        "temporal_token": 118,
+        "cross_asset_token": 245
       },
       "score": 0.7608706538661606,
       "reasons": [
@@ -7721,8 +7721,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 78,
-        "cross_asset_token": 217
+        "temporal_token": 184,
+        "cross_asset_token": 225
       },
       "score": 0.7591178671709695,
       "reasons": [
@@ -8085,8 +8085,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 58,
-        "cross_asset_token": 206
+        "temporal_token": 75,
+        "cross_asset_token": 245
       },
       "score": 0.7577416298663878,
       "reasons": [
@@ -8451,7 +8451,7 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 98,
+        "temporal_token": 203,
         "cross_asset_token": 142
       },
       "score": 0.7172705260180564,
@@ -8814,8 +8814,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 29,
-        "cross_asset_token": 34
+        "temporal_token": 245,
+        "cross_asset_token": 141
       },
       "score": 0.7170871040642429,
       "reasons": [
@@ -9177,8 +9177,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 240,
-        "cross_asset_token": 34
+        "temporal_token": 50,
+        "cross_asset_token": 141
       },
       "score": 0.7168001765687653,
       "reasons": [
@@ -9540,8 +9540,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 170,
-        "cross_asset_token": 34
+        "temporal_token": 216,
+        "cross_asset_token": 141
       },
       "score": 0.7001625007411624,
       "reasons": [
@@ -9903,8 +9903,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 71,
-        "cross_asset_token": 177
+        "temporal_token": 137,
+        "cross_asset_token": 69
       },
       "score": 0.6961923356059658,
       "reasons": [
@@ -10267,8 +10267,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 134,
-        "cross_asset_token": 217
+        "temporal_token": 136,
+        "cross_asset_token": 225
       },
       "score": 0.6927583356060664,
       "reasons": [
@@ -10631,8 +10631,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 243,
-        "cross_asset_token": 164
+        "temporal_token": 213,
+        "cross_asset_token": 169
       },
       "score": 0.6893257557633151,
       "reasons": [
@@ -10994,8 +10994,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 224,
-        "cross_asset_token": 34
+        "temporal_token": 112,
+        "cross_asset_token": 141
       },
       "score": 0.6858563695591856,
       "reasons": [
@@ -11357,8 +11357,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 250,
-        "cross_asset_token": 147
+        "temporal_token": 212,
+        "cross_asset_token": 78
       },
       "score": 0.6780617894387031,
       "reasons": [
@@ -11720,8 +11720,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 236,
-        "cross_asset_token": 206
+        "temporal_token": 245,
+        "cross_asset_token": 245
       },
       "score": 0.6657774593243733,
       "reasons": [
@@ -12085,8 +12085,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 173,
-        "cross_asset_token": 217
+        "temporal_token": 253,
+        "cross_asset_token": 225
       },
       "score": 0.6647400634718674,
       "reasons": [
@@ -12449,8 +12449,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 19,
-        "cross_asset_token": 58
+        "temporal_token": 241,
+        "cross_asset_token": 101
       },
       "score": 0.659760816751607,
       "reasons": [
@@ -12814,8 +12814,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 59,
-        "cross_asset_token": 34
+        "temporal_token": 244,
+        "cross_asset_token": 141
       },
       "score": 0.6594608398863602,
       "reasons": [
@@ -13177,8 +13177,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 61,
-        "cross_asset_token": 34
+        "temporal_token": 109,
+        "cross_asset_token": 141
       },
       "score": 0.6492164019804627,
       "reasons": [
@@ -13540,8 +13540,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 121,
-        "cross_asset_token": 34
+        "temporal_token": 152,
+        "cross_asset_token": 141
       },
       "score": 0.6409465399202875,
       "reasons": [
@@ -13903,8 +13903,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 125,
-        "cross_asset_token": 217
+        "temporal_token": 9,
+        "cross_asset_token": 225
       },
       "score": 0.6296255137641619,
       "reasons": [
@@ -14266,8 +14266,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 62,
-        "cross_asset_token": 194
+        "temporal_token": 151,
+        "cross_asset_token": 56
       },
       "score": 0.6258101755221013,
       "reasons": [
@@ -14629,8 +14629,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 139,
-        "cross_asset_token": 58
+        "temporal_token": 176,
+        "cross_asset_token": 101
       },
       "score": 0.6160848753950217,
       "reasons": [
@@ -14992,8 +14992,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 107,
-        "cross_asset_token": 164
+        "temporal_token": 93,
+        "cross_asset_token": 169
       },
       "score": 0.5997135319548947,
       "reasons": [
@@ -15354,8 +15354,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 147,
-        "cross_asset_token": 177
+        "temporal_token": 85,
+        "cross_asset_token": 69
       },
       "score": 0.5966413640810152,
       "reasons": [
@@ -15717,8 +15717,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 40,
-        "cross_asset_token": 206
+        "temporal_token": 173,
+        "cross_asset_token": 245
       },
       "score": 0.5730035031974792,
       "reasons": [
@@ -16081,8 +16081,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 233,
-        "cross_asset_token": 177
+        "temporal_token": 13,
+        "cross_asset_token": 69
       },
       "score": 0.5706591200182995,
       "reasons": [
@@ -16444,8 +16444,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 40,
-        "cross_asset_token": 58
+        "temporal_token": 244,
+        "cross_asset_token": 112
       },
       "score": 0.5565085037220199,
       "reasons": [
@@ -16806,8 +16806,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 50,
-        "cross_asset_token": 231
+        "temporal_token": 201,
+        "cross_asset_token": 214
       },
       "score": 0.5302125464608387,
       "reasons": [
@@ -17168,8 +17168,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 169,
-        "cross_asset_token": 217
+        "temporal_token": 68,
+        "cross_asset_token": 225
       },
       "score": 0.508367404606271,
       "reasons": [
@@ -17530,8 +17530,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 248,
-        "cross_asset_token": 206
+        "temporal_token": 45,
+        "cross_asset_token": 245
       },
       "score": 0.5071636434943918,
       "reasons": [
@@ -17894,8 +17894,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 196,
-        "cross_asset_token": 164
+        "temporal_token": 212,
+        "cross_asset_token": 169
       },
       "score": 0.5043808420384811,
       "reasons": [
@@ -18256,8 +18256,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 144,
-        "cross_asset_token": 231
+        "temporal_token": 217,
+        "cross_asset_token": 214
       },
       "score": 0.47679035777477385,
       "reasons": [
@@ -18618,8 +18618,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 68,
-        "cross_asset_token": 34
+        "temporal_token": 29,
+        "cross_asset_token": 141
       },
       "score": 0.4724151645112986,
       "reasons": [
@@ -18980,8 +18980,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 64,
-        "cross_asset_token": 194
+        "temporal_token": 42,
+        "cross_asset_token": 56
       },
       "score": 0.4622557426429708,
       "reasons": [
@@ -19342,8 +19342,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 247,
-        "cross_asset_token": 147
+        "temporal_token": 159,
+        "cross_asset_token": 78
       },
       "score": 0.45729821632562095,
       "reasons": [
@@ -19704,8 +19704,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 105,
-        "cross_asset_token": 110
+        "temporal_token": 90,
+        "cross_asset_token": 100
       },
       "score": 0.45046148647994977,
       "reasons": [
@@ -20066,8 +20066,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 97,
-        "cross_asset_token": 58
+        "temporal_token": 121,
+        "cross_asset_token": 112
       },
       "score": 0.44948061942646117,
       "reasons": [
@@ -20428,8 +20428,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 101,
-        "cross_asset_token": 110
+        "temporal_token": 79,
+        "cross_asset_token": 100
       },
       "score": 0.4406100263602573,
       "reasons": [
@@ -20790,8 +20790,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 238,
-        "cross_asset_token": 34
+        "temporal_token": 50,
+        "cross_asset_token": 141
       },
       "score": 0.43491227953180855,
       "reasons": [
@@ -21152,8 +21152,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 38,
-        "cross_asset_token": 147
+        "temporal_token": 6,
+        "cross_asset_token": 78
       },
       "score": 0.41055097788166595,
       "reasons": [
@@ -21514,8 +21514,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 4,
-        "cross_asset_token": 110
+        "temporal_token": 64,
+        "cross_asset_token": 100
       },
       "score": 0.35437374977092406,
       "reasons": [
@@ -21876,8 +21876,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 151,
-        "cross_asset_token": 110
+        "temporal_token": 210,
+        "cross_asset_token": 100
       },
       "score": 0.3331718121455629,
       "reasons": [
@@ -22238,8 +22238,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 206,
-        "cross_asset_token": 194
+        "temporal_token": 69,
+        "cross_asset_token": 56
       },
       "score": 0.18591908961894382,
       "reasons": [
@@ -22600,8 +22600,8 @@
         }
       ],
       "token_summary": {
-        "temporal_token": 9,
-        "cross_asset_token": 58
+        "temporal_token": 123,
+        "cross_asset_token": 112
       },
       "score": 0.12725467042450198,
       "reasons": [
@@ -23053,18 +23053,18 @@
         ]
       ],
       "token_ids": [
-        4,
+        6,
         9,
-        19,
-        24,
+        13,
+        17,
         29,
-        34,
-        38,
-        40,
-        43,
-        46,
+        42,
+        45,
         50,
-        55
+        64,
+        68,
+        69,
+        75
       ]
     },
     "rollout_fidelity": [

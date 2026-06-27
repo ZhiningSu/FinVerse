@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import io
 import json
 import math
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import requests
 
 from scripts.fetch_eastmoney import fetch_symbol, normalize_symbol
 
@@ -18,9 +23,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TICKER_FILE = PROJECT_ROOT / "data" / "tickers" / "hmsc_us_90.csv"
 DEFAULT_CN_TICKER_FILE = PROJECT_ROOT / "data" / "tickers" / "hmsc_cn_50.csv"
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw" / "yfinance_hmsc"
+DEFAULT_STOOQ_RAW_DIR = PROJECT_ROOT / "data" / "raw" / "stooq"
 DEFAULT_CN_RAW_DIR = PROJECT_ROOT / "data" / "raw" / "eastmoney"
 DEFAULT_LIVE_DIR = PROJECT_ROOT / "outputs" / "live"
 DEFAULT_DATA_LIVE_DIR = PROJECT_ROOT / "data" / "live"
+STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
+YAHOO_CHART_BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
+HTTP_HEADERS = {"User-Agent": "FinVerse-Dashboard/0.1 (+https://github.com/ZhiningSu/FinVerse)"}
 
 
 @dataclass(frozen=True)
@@ -105,6 +114,116 @@ def fetch_eastmoney_universe(
     return load_raw_market_data(raw_dir)
 
 
+def stooq_symbol(symbol: str) -> str:
+    ticker = symbol.strip().lower().replace("-", ".")
+    return f"{ticker}.us"
+
+
+def _stooq_row(row: dict[str, str]) -> dict[str, Any] | None:
+    try:
+        close = float(row["Close"])
+        return {
+            "date": row["Date"],
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": close,
+            "volume": int(float(row.get("Volume") or 0)),
+            "adj_close": close,
+        }
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def fetch_stooq_symbol(symbol: str, retries: int = 1, sleep_base: float = 0.4) -> dict[str, Any] | None:
+    params = {"s": stooq_symbol(symbol), "i": "d"}
+    for attempt in range(retries):
+        try:
+            resp = requests.get(STOOQ_BASE_URL, headers=HTTP_HEADERS, params=params, timeout=8)
+            if resp.status_code != 200 or not resp.text.strip().startswith("Date,"):
+                time.sleep(sleep_base * (2 ** attempt))
+                continue
+            rows = [
+                parsed
+                for parsed in (_stooq_row(row) for row in csv.DictReader(io.StringIO(resp.text)))
+                if parsed is not None
+            ]
+            if rows:
+                return {"symbol": symbol.upper(), "source": "stooq", "stooq_symbol": params["s"], "data": rows}
+        except Exception:
+            time.sleep(sleep_base * (2 ** attempt))
+    return None
+
+
+def fetch_yahoo_chart_symbol(symbol: str, retries: int = 1, sleep_base: float = 0.4) -> dict[str, Any] | None:
+    url = f"{YAHOO_CHART_BASE_URL}/{symbol.upper()}"
+    params = {"range": "5y", "interval": "1d", "events": "history", "includeAdjustedClose": "true"}
+    headers = {"User-Agent": "Mozilla/5.0"}
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=8)
+            if resp.status_code != 200:
+                time.sleep(sleep_base * (2 ** attempt))
+                continue
+            result = (resp.json().get("chart", {}).get("result") or [None])[0]
+            if not result:
+                return None
+            timestamps = result.get("timestamp") or []
+            quote = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+            adj = ((result.get("indicators") or {}).get("adjclose") or [{}])[0].get("adjclose") or []
+            rows = []
+            for idx, ts in enumerate(timestamps):
+                try:
+                    close = quote["close"][idx]
+                    if close is None:
+                        continue
+                    rows.append(
+                        {
+                            "date": datetime.fromtimestamp(int(ts), tz=timezone.utc).date().isoformat(),
+                            "open": float(quote["open"][idx]) if quote["open"][idx] is not None else None,
+                            "high": float(quote["high"][idx]) if quote["high"][idx] is not None else None,
+                            "low": float(quote["low"][idx]) if quote["low"][idx] is not None else None,
+                            "close": float(close),
+                            "volume": int(quote["volume"][idx] or 0),
+                            "adj_close": float(adj[idx]) if idx < len(adj) and adj[idx] is not None else float(close),
+                        }
+                    )
+                except (KeyError, IndexError, TypeError, ValueError):
+                    continue
+            if rows:
+                return {"symbol": symbol.upper(), "source": "yahoo_chart", "data": rows}
+        except Exception:
+            time.sleep(sleep_base * (2 ** attempt))
+    return None
+
+
+def fetch_us_online_symbol(symbol: str) -> dict[str, Any] | None:
+    return fetch_stooq_symbol(symbol) or fetch_yahoo_chart_symbol(symbol)
+
+
+def fetch_stooq_universe(
+    raw_dir: Path,
+    ticker_info: dict[str, dict[str, str]],
+    force_fetch: bool = False,
+) -> dict[str, list[dict[str, Any]]]:
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    pending: list[tuple[str, Path]] = []
+    for symbol in ticker_info:
+        out_file = raw_dir / f"{symbol.upper().replace('.', '_').replace('-', '_')}.json"
+        if out_file.exists() and not force_fetch:
+            continue
+        pending.append((symbol, out_file))
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_us_online_symbol, symbol): (symbol, out_file) for symbol, out_file in pending}
+        for future in as_completed(futures):
+            _, out_file = futures[future]
+            result = future.result()
+            if result and result.get("data"):
+                out_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    return load_raw_market_data(raw_dir)
+
+
 def choose_trade_date(raw: dict[str, list[dict[str, Any]]], requested_date: str | None = None) -> str:
     if requested_date:
         return requested_date
@@ -127,8 +246,17 @@ def fetch_latest_data(
     force_fetch: bool = False,
 ) -> dict[str, Any]:
     raw = load_raw_market_data(raw_dir)
-    if config.market.lower() == "cn" and (force_fetch or not raw):
+    source = "raw_yfinance_hmsc_snapshot"
+    market = config.market.lower()
+    if market == "us" and (force_fetch or not raw):
+        stooq_dir = DEFAULT_STOOQ_RAW_DIR if raw_dir == DEFAULT_RAW_DIR else raw_dir
+        raw = fetch_stooq_universe(stooq_dir, ticker_info, force_fetch=force_fetch)
+        source = "stooq_yahoo_chart_fallback"
+    elif market == "cn" and (force_fetch or not raw):
         raw = fetch_eastmoney_universe(raw_dir, ticker_info, begin=config.fetch_begin, end=config.fetch_end)
+        source = "eastmoney"
+    elif market == "cn":
+        source = "eastmoney"
     selected_date = choose_trade_date(raw, trade_date)
     snapshot = {}
     for ticker, rows in raw.items():
@@ -140,7 +268,7 @@ def fetch_latest_data(
     output_path = data_live_dir / "raw" / selected_date / "market_snapshot.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps({"trade_date": selected_date, "assets": snapshot}, indent=2))
-    return {"trade_date": selected_date, "assets": snapshot, "raw": raw, "path": str(output_path)}
+    return {"trade_date": selected_date, "assets": snapshot, "raw": raw, "path": str(output_path), "source": source}
 
 
 def compute_asset_features(
@@ -219,6 +347,11 @@ def _clip(value: float, low: float, high: float) -> float:
     return float(min(max(value, low), high))
 
 
+def stable_token_id(*parts: str, modulo: int = 256) -> int:
+    text = "::".join(parts).encode("utf-8")
+    return int(hashlib.sha256(text).hexdigest()[:8], 16) % modulo
+
+
 def run_finverse_inference_adapter(asset_features: list[dict[str, Any]], market_state: dict[str, Any]) -> list[dict[str, Any]]:
     outputs = []
     bull = market_state["regime_probs"]["bull"]
@@ -248,8 +381,8 @@ def run_finverse_inference_adapter(asset_features: list[dict[str, Any]], market_
                 "regime_probs": market_state["regime_probs"],
                 "rollout_path": rollout_path,
                 "token_summary": {
-                    "temporal_token": int(abs(hash((row["ticker"], "temporal"))) % 256),
-                    "cross_asset_token": int(abs(hash((row["sector"], "cross"))) % 256),
+                    "temporal_token": stable_token_id(row["ticker"], "temporal"),
+                    "cross_asset_token": stable_token_id(row["sector"], "cross"),
                 },
             }
         )
@@ -416,7 +549,7 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
         "trade_date": snapshot["trade_date"],
         "last_updated_at": utc_now(),
         "mode": config.mode,
-        "source": "eastmoney" if market == "cn" else "raw_yfinance_hmsc_snapshot",
+        "source": snapshot["source"],
         "model_checkpoint": config.model_checkpoint,
         "pipeline_status": {"run_id": run_id, "stages": stages},
         "selected_strategy": strategy,

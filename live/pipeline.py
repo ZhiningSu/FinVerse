@@ -609,6 +609,67 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
     return ranked[:top_k], ranked
 
 
+def load_static_dashboard_seed(market: str) -> dict[str, Any] | None:
+    path = PROJECT_ROOT / "dashboard" / "public" / "data" / market / "latest.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+
+def _asset_key(asset: dict[str, Any]) -> str:
+    return str(asset.get("ticker", "")).upper()
+
+
+def _merge_unique_assets(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged = []
+    seen = set()
+    for group in groups:
+        for asset in group:
+            key = _asset_key(asset)
+            if not key or key in seen:
+                continue
+            merged.append(dict(asset))
+            seen.add(key)
+    return merged
+
+
+def _assign_asset_ranks(assets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for rank, asset in enumerate(assets, start=1):
+        asset["rank"] = rank
+    return assets
+
+
+def ensure_minimum_ranked_assets(
+    market: str,
+    top_assets: list[dict[str, Any]],
+    all_assets: list[dict[str, Any]],
+    top_k: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+    if market != "cn" or len(top_assets) >= top_k:
+        return top_assets, all_assets, None
+
+    seed = load_static_dashboard_seed(market)
+    if not seed:
+        return top_assets, all_assets, None
+
+    seed_top = seed.get("top_assets", [])
+    seed_all = seed.get("all_assets", seed_top)
+    if len(seed_top) < top_k and len(seed_all) < top_k:
+        return top_assets, all_assets, None
+
+    original_count = len(top_assets)
+    merged_top = _merge_unique_assets(top_assets, seed_top, seed_all)[:top_k]
+    merged_all = _merge_unique_assets(merged_top, all_assets, seed_all, seed_top)
+    if len(merged_top) < top_k:
+        return top_assets, all_assets, None
+
+    note = f"expanded CN ranking from {original_count} to {len(merged_top)} assets with static dashboard seed"
+    return _assign_asset_ranks(merged_top), _assign_asset_ranks(merged_all), note
+
+
 def sector_macro_fit(sector: str, market_state: dict[str, Any]) -> float:
     probs = market_state["regime_probs"]
     vol = market_state["market_vol_20d"]
@@ -759,7 +820,17 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
     stage("strategy", "success", strategy["name"])
 
     top_assets, all_assets = rank_assets(model_outputs, strategy, config.top_k)
-    stage("ranking", "success", f"ranked {len(all_assets)} assets")
+    ranking_fallback_note: str | None = None
+    top_assets, all_assets, ranking_fallback_note = ensure_minimum_ranked_assets(
+        market,
+        top_assets,
+        all_assets,
+        config.top_k,
+    )
+    ranking_message = f"ranked {len(all_assets)} assets"
+    if ranking_fallback_note:
+        ranking_message = f"{ranking_message}; {ranking_fallback_note}"
+    stage("ranking", "success", ranking_message)
 
     top_industries = recommend_industries(
         all_assets,
@@ -777,7 +848,7 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
         "trade_date": snapshot["trade_date"],
         "last_updated_at": utc_now(),
         "mode": config.mode,
-        "source": snapshot["source"],
+        "source": f"{snapshot['source']}+static_seed_fallback" if ranking_fallback_note else snapshot["source"],
         "model_checkpoint": config.model_checkpoint,
         "pipeline_status": {"run_id": run_id, "stages": stages},
         "selected_strategy": strategy,

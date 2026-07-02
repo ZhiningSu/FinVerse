@@ -27,17 +27,17 @@ const COPY = {
 };
 
 type Domain = { min: number; max: number };
+type ChartPoint = { x: number; value: number };
 
-function points(values: number[], width: number, height: number, domain: Domain) {
-  if (!values.length) return "";
+function scaledY(value: number, height: number, domain: Domain) {
   const { min, max } = domain;
   const span = Math.max(max - min, 1e-6);
-  return values
-    .map((value, index) => {
-      const x = (index / Math.max(values.length - 1, 1)) * width;
-      const y = height - ((value - min) / span) * height;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
+  return height - ((value - min) / span) * height;
+}
+
+function points(samples: ChartPoint[], height: number, domain: Domain) {
+  return samples
+    .map((sample) => `${sample.x.toFixed(2)},${scaledY(sample.value, height, domain).toFixed(2)}`)
     .join(" ");
 }
 
@@ -69,8 +69,16 @@ export function RolloutChart({ asset, language }: RolloutChartProps) {
   const domain = chartDomain([...history, ...rollout]);
   const width = 680;
   const height = 220;
-  const leftWidth = width * 0.5;
-  const rightWidth = width * 0.5;
+  const splitX = width * 0.5;
+  const historyPoints = history.map((value, index) => ({
+    x: (index / Math.max(history.length - 1, 1)) * splitX,
+    value,
+  }));
+  const rolloutPoints = rollout.map((value, index) => ({
+    x: splitX + (index / Math.max(rollout.length - 1, 1)) * (width - splitX),
+    value,
+  }));
+  const anchorY = scaledY(historyLast, height, domain);
 
   return (
     <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
@@ -101,11 +109,10 @@ export function RolloutChart({ asset, language }: RolloutChartProps) {
             stroke="rgba(148,163,184,0.16)"
           />
         ))}
-        <polyline points={points(history, leftWidth, height, domain)} fill="none" stroke="#94A3B8" strokeWidth="3" />
-        <g transform={`translate(${leftWidth},0)`}>
-          <polyline points={points(rollout, rightWidth, height, domain)} fill="none" stroke="url(#rolloutGlow)" strokeWidth="3.5" />
-        </g>
-        <line x1={leftWidth} x2={leftWidth} y1="0" y2={height} stroke="rgba(255,255,255,0.22)" strokeDasharray="4 6" />
+        <line x1={splitX} x2={splitX} y1="0" y2={height} stroke="rgba(255,255,255,0.18)" strokeDasharray="4 6" />
+        <polyline points={points(historyPoints, height, domain)} fill="none" stroke="#94A3B8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={points(rolloutPoints, height, domain)} fill="none" stroke="url(#rolloutGlow)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={splitX} cy={anchorY} r="4.5" fill="#2DE2C5" stroke="#08111F" strokeWidth="2" />
       </svg>
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div className="rounded-2xl bg-slate-950/60 p-3 text-slate-300">{copy.predRet}: {(asset.features.expected_return_30d * 100).toFixed(2)}%</div>

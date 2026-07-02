@@ -133,16 +133,27 @@ def fetch_eastmoney_universe(
     ticker_info: dict[str, dict[str, str]],
     begin: str,
     end: str,
+    force_fetch: bool = False,
 ) -> dict[str, list[dict[str, Any]]]:
     raw_dir.mkdir(parents=True, exist_ok=True)
+    pending: list[tuple[str, Path]] = []
     for symbol in ticker_info:
         safe_symbol = normalize_symbol(symbol).replace(".", "_")
         out_file = raw_dir / f"{safe_symbol}.json"
-        if out_file.exists():
+        if out_file.exists() and not force_fetch:
             continue
-        result = fetch_symbol(symbol, begin=begin, end=end, fq=1, retries=2, sleep_base=0.6)
-        if result and result.get("data"):
-            out_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        pending.append((symbol, out_file))
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {
+            executor.submit(fetch_symbol, symbol, begin=begin, end=end, fq=1, retries=1, sleep_base=0.2, timeout=8): (symbol, out_file)
+            for symbol, out_file in pending
+        }
+        for future in as_completed(futures):
+            _, out_file = futures[future]
+            result = future.result()
+            if result and result.get("data"):
+                out_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return load_raw_market_data(raw_dir)
 
 
@@ -383,7 +394,7 @@ def fetch_latest_data(
         raw = fetch_stooq_universe(stooq_dir, ticker_info, force_fetch=force_fetch)
         source = "stooq_yahoo_chart_fallback"
     elif market == "cn" and (force_fetch or not raw):
-        raw = fetch_eastmoney_universe(raw_dir, ticker_info, begin=config.fetch_begin, end=config.fetch_end)
+        raw = fetch_eastmoney_universe(raw_dir, ticker_info, begin=config.fetch_begin, end=config.fetch_end, force_fetch=force_fetch)
         source = "eastmoney"
     elif market == "cn":
         source = "eastmoney"

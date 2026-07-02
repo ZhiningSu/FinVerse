@@ -103,6 +103,7 @@ def fetch_symbol(
     fq: int = 1,
     retries: int = 3,
     sleep_base: float = 1.0,
+    timeout: float = 30,
 ) -> dict | None:
     secid = eastmoney_secid(symbol)
     params = {
@@ -118,7 +119,7 @@ def fetch_symbol(
 
     for attempt in range(retries):
         try:
-            resp = requests.get(BASE_URL, headers=HEADERS, params=params, timeout=30)
+            resp = requests.get(BASE_URL, headers=HEADERS, params=params, timeout=timeout)
             if resp.status_code != 200:
                 wait = sleep_base * (2 ** attempt)
                 LOGGER.warning("[%s] HTTP %d, sleeping %.1fs", symbol, resp.status_code, wait)

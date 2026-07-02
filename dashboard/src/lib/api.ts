@@ -9,7 +9,7 @@ type StaticRecommendation = Omit<RecommendationResponse, "all_assets" | "top_ass
 };
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`${url} failed with ${response.status}`);
   }
@@ -21,7 +21,7 @@ function withMarket(path: string, market: Market) {
 }
 
 function staticDataUrl(market: Market) {
-  return `${import.meta.env.BASE_URL}data/${market}/latest.json`;
+  return `${import.meta.env.BASE_URL}data/${market}/latest.json?v=${Date.now()}`;
 }
 
 const liveApiBase = ((import.meta.env.VITE_LIVE_API_BASE as string | undefined) ?? "").replace(/\/$/, "");

@@ -49,6 +49,8 @@ DEFAULT_CONFIG = {
     "recon_weight": 1.0,
     "regime_weight": 0.05,
     "vq_weight": 0.001,
+    "action_weight": 0.001,
+    "policy_weight": 0.001,
     "lr": 3e-4,
     "weight_decay": 1e-4,
     "batch_size": 32,
@@ -76,6 +78,8 @@ def build_parser():
     parser.add_argument("--recon-weight", type=float, default=DEFAULT_CONFIG["recon_weight"])
     parser.add_argument("--regime-weight", type=float, default=DEFAULT_CONFIG["regime_weight"])
     parser.add_argument("--vq-weight", type=float, default=DEFAULT_CONFIG["vq_weight"])
+    parser.add_argument("--action-weight", type=float, default=DEFAULT_CONFIG["action_weight"])
+    parser.add_argument("--policy-weight", type=float, default=DEFAULT_CONFIG["policy_weight"])
     parser.add_argument("--lr", type=float, default=DEFAULT_CONFIG["lr"])
     parser.add_argument("--weight-decay", type=float, default=DEFAULT_CONFIG["weight_decay"])
     parser.add_argument("--batch-size", type=int, default=DEFAULT_CONFIG["batch_size"])
@@ -136,6 +140,8 @@ def build_model(model_name: str, args, device):
             recon_weight=args.recon_weight,
             regime_weight=args.regime_weight,
             vq_weight=args.vq_weight,
+            action_weight=args.action_weight,
+            policy_weight=args.policy_weight,
         )
     elif model_name == "vanilla_rssm":
         model = WorldModel(
@@ -149,6 +155,8 @@ def build_model(model_name: str, args, device):
             recon_weight=args.recon_weight,
             regime_weight=args.regime_weight,
             vq_weight=0.0,
+            action_weight=args.action_weight,
+            policy_weight=args.policy_weight,
         )
     elif model_name == "dreamer_rssm":
         model = DreamerStyleRSSM(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
@@ -157,6 +165,8 @@ def build_model(model_name: str, args, device):
             recon_weight=args.recon_weight,
             regime_weight=args.regime_weight,
             vq_weight=0.0,
+            action_weight=args.action_weight,
+            policy_weight=args.policy_weight,
         )
     elif model_name == "price_only":
         model = PriceOnlyGRU(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)
@@ -171,6 +181,8 @@ def build_model(model_name: str, args, device):
             recon_weight=args.recon_weight,
             regime_weight=args.regime_weight,
             vq_weight=args.vq_weight,
+            action_weight=args.action_weight,
+            policy_weight=args.policy_weight,
         )
     elif model_name == "lstm":
         model = LSTMForecaster(price_dim=6, hidden_dim=args.hidden_dim, output_dim=6, num_steps=30).to(device)

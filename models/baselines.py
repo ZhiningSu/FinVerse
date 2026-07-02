@@ -5,6 +5,110 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def _align_feature_dim(x: torch.Tensor, target_dim: int) -> torch.Tensor:
+    if x.size(-1) < target_dim:
+        pad = torch.zeros(*x.shape[:-1], target_dim - x.size(-1), device=x.device, dtype=x.dtype)
+        return torch.cat([x, pad], dim=-1)
+    if x.size(-1) > target_dim:
+        return x[..., :target_dim]
+    return x
+
+
+def _target_for_prediction(pred: torch.Tensor, target: torch.Tensor | None) -> torch.Tensor | None:
+    if target is None or target.numel() == 0:
+        return None
+    target = target.to(device=pred.device, dtype=pred.dtype)
+    steps = min(pred.size(1), target.size(1))
+    pred_channels = pred.size(-1) if pred.dim() == 3 else None
+    target = target[:, :steps]
+    if pred.dim() == 2 and target.dim() == 3:
+        target = target[:, :, 0]
+    elif pred.dim() == 3 and target.dim() == 2:
+        target = target.unsqueeze(-1).expand(-1, -1, pred_channels)
+    elif pred.dim() == 3 and target.dim() == 3:
+        target = _align_feature_dim(target, pred_channels)
+    return target
+
+
+def _mse_loss(pred: torch.Tensor, target: torch.Tensor | None) -> torch.Tensor:
+    target = _target_for_prediction(pred, target)
+    if target is None:
+        return pred.new_tensor(0.0)
+    steps = min(pred.size(1), target.size(1))
+    return F.mse_loss(pred[:, :steps], target[:, :steps])
+
+
+def _kl_divergence(q_mu: torch.Tensor, q_logvar: torch.Tensor, p_mu: torch.Tensor, p_logvar: torch.Tensor) -> torch.Tensor:
+    p_var = p_logvar.exp()
+    q_var = q_logvar.exp()
+    kl = (q_var + (q_mu - p_mu) ** 2) / (p_var + 1e-8) + p_logvar - q_logvar - 1
+    return 0.5 * kl.sum(dim=-1)
+
+
+def _reparameterize(mu: torch.Tensor, logvar: torch.Tensor, training: bool) -> torch.Tensor:
+    if training:
+        std = (logvar * 0.5).exp()
+        return mu + torch.randn_like(std) * std
+    return mu
+
+
+def _prepare_action_sequence(
+    action: torch.Tensor | None,
+    batch_size: int,
+    horizon: int,
+    action_dim: int,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    if action is None:
+        return torch.zeros(batch_size, horizon, action_dim, device=device, dtype=dtype)
+    action = action.to(device=device, dtype=dtype)
+    if action.dim() == 2:
+        action = action.unsqueeze(1).expand(-1, horizon, -1)
+    if action.size(1) < horizon:
+        pad = action[:, -1:].expand(-1, horizon - action.size(1), -1)
+        action = torch.cat([action, pad], dim=1)
+    return _align_feature_dim(action[:, :horizon], action_dim)
+
+
+def _edge_index_and_weight(edge_index, edge_weight, batch_idx: int, num_nodes: int, device: torch.device):
+    if edge_index is None or edge_index.numel() == 0:
+        base_edges = torch.empty(2, 0, dtype=torch.long, device=device)
+        weights = torch.empty(0, dtype=torch.float32, device=device)
+    else:
+        base_edges = edge_index[batch_idx] if edge_index.dim() == 3 else edge_index
+        base_edges = base_edges.to(device=device, dtype=torch.long).clamp(0, num_nodes - 1)
+        if edge_weight is None or edge_weight.numel() == 0:
+            weights = torch.ones(base_edges.size(-1), device=device)
+        else:
+            weights = edge_weight[batch_idx] if edge_weight.dim() == 2 else edge_weight
+            weights = weights.to(device=device, dtype=torch.float32)
+    reverse_edges = base_edges.flip(0)
+    self_edges = torch.arange(num_nodes, device=device, dtype=torch.long).repeat(2, 1)
+    edges = torch.cat([base_edges, reverse_edges, self_edges], dim=1)
+    weights = torch.cat([weights, weights, torch.ones(num_nodes, device=device)], dim=0)
+    return edges, weights
+
+
+def _graph_neighbor_series(price_seq: torch.Tensor, edge_index, edge_weight, num_nodes: int) -> torch.Tensor:
+    price_seq = _align_feature_dim(price_seq, num_nodes)
+    batch_size, _, _ = price_seq.shape
+    latest = price_seq[:, -1]
+    neighbor_latest = torch.zeros_like(latest)
+    for b in range(batch_size):
+        edges, weights = _edge_index_and_weight(edge_index, edge_weight, b, num_nodes, price_seq.device)
+        src, dst = edges[0], edges[1]
+        weights = weights.to(device=price_seq.device, dtype=price_seq.dtype)
+        numer = torch.zeros(num_nodes, device=price_seq.device, dtype=price_seq.dtype)
+        denom = torch.zeros(num_nodes, device=price_seq.device, dtype=price_seq.dtype)
+        numer.index_add_(0, dst, latest[b, src] * weights)
+        denom.index_add_(0, dst, weights.abs().clamp_min(1e-6))
+        neighbor_latest[b] = numer / denom.clamp_min(1e-6)
+    graph_seq = price_seq.clone()
+    graph_seq[:, -1] = 0.5 * (latest + neighbor_latest)
+    return graph_seq
+
+
 class PriceOnlyGRU(nn.Module):
 
     def __init__(
@@ -44,15 +148,14 @@ class PriceOnlyGRU(nn.Module):
             preds.append(pred)
 
         price_pred = torch.stack(preds, dim=1)
-
-        loss = torch.tensor(0.0, device=price_seq.device)
-        if price_target is not None and price_target.numel() > 0:
-            loss = F.mse_loss(price_pred, price_target)
+        loss = _mse_loss(price_pred, price_target)
 
         return {
             "price_pred": price_pred,
             "loss": loss,
             "hidden": h,
+            "kl": price_seq.new_tensor(0.0),
+            "vq_loss": price_seq.new_tensor(0.0),
         }
 
 
@@ -71,6 +174,11 @@ class MultiModalNoRollout(nn.Module):
     ):
         super().__init__()
         self.latent_dim = latent_dim
+        self.price_dim = price_dim
+        self.news_dim = news_dim
+        self.macro_dim = macro_dim
+        self.action_dim = action_dim
+        self.num_steps = 30
 
         self.price_lstm = nn.LSTM(price_dim, hidden_dim, batch_first=True)
         self.price_encoder = nn.Sequential(
@@ -130,19 +238,15 @@ class MultiModalNoRollout(nn.Module):
         )
 
     def encode(self, price_seq, news_feat, macro_feat, edge_index, edge_weight):
+        price_seq = _align_feature_dim(price_seq, self.price_dim)
+        news_feat = _align_feature_dim(news_feat, self.news_dim)
+        macro_feat = _align_feature_dim(macro_feat, self.macro_dim)
         lstm_out, _ = self.price_lstm(price_seq)
         price_h = self.price_encoder(lstm_out).mean(dim=1)
         news_h = self.news_encoder(news_feat).mean(dim=1)
         macro_h = self.macro_encoder(macro_feat).mean(dim=1)
-        n_nodes = int(edge_index.max().item()) + 1
-        if price_seq.size(2) < n_nodes:
-            padded = torch.cat([
-                price_seq,
-                torch.zeros(price_seq.size(0), price_seq.size(1), n_nodes - price_seq.size(2), device=price_seq.device)
-            ], dim=2)
-        else:
-            padded = price_seq[:, :, :n_nodes]
-        graph_h = self.graph_encoder(padded).mean(dim=1)
+        graph_seq = _graph_neighbor_series(price_seq, edge_index, edge_weight, self.price_dim)
+        graph_h = self.graph_encoder(graph_seq).mean(dim=1)
         combined = torch.cat([price_h, news_h, macro_h, graph_h], dim=-1)
         fused = self.fusion(combined)
         return self.to_latent(fused)
@@ -150,10 +254,18 @@ class MultiModalNoRollout(nn.Module):
     def forward(self, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target=None):
         z = self.encode(price_seq, news_feat, macro_feat, edge_index, edge_weight)
 
+        actions = _prepare_action_sequence(
+            action,
+            batch_size=z.size(0),
+            horizon=self.num_steps,
+            action_dim=self.action_dim,
+            device=z.device,
+            dtype=z.dtype,
+        )
         imagined = []
         h = z
-        for _ in range(30):
-            inp = torch.cat([h, action], dim=-1)
+        for t in range(self.num_steps):
+            inp = torch.cat([h, actions[:, t]], dim=-1)
             h = self.transition(inp, h)
             imagined.append(h)
         imagined = torch.stack(imagined, dim=1)
@@ -162,10 +274,7 @@ class MultiModalNoRollout(nn.Module):
         return_pred = self.return_head(imagined[:, -1])
         regime_logits = self.regime_head(imagined[:, -1])
 
-        loss = torch.tensor(0.0, device=z.device)
-        if price_target is not None and price_target.numel() > 0:
-            target = price_target[:, :, 0] if price_target.dim() == 3 else price_target
-            loss = F.mse_loss(price_pred, target)
+        loss = _mse_loss(price_pred, price_target)
 
         return {
             "price_pred": price_pred,
@@ -173,7 +282,8 @@ class MultiModalNoRollout(nn.Module):
             "regime_logits": regime_logits,
             "loss": loss,
             "z": z,
-            "kl": torch.tensor(0.0, device=z.device),
+            "kl": z.new_tensor(0.0),
+            "vq_loss": z.new_tensor(0.0),
         }
 
 
@@ -193,6 +303,10 @@ class NoGraphWorldModel(nn.Module):
         super().__init__()
         self.latent_dim = latent_dim
         self.num_tickers = num_tickers
+        self.price_dim = price_dim
+        self.news_dim = news_dim
+        self.macro_dim = macro_dim
+        self.action_dim = action_dim
 
         self.price_lstm = nn.LSTM(price_dim, hidden_dim, batch_first=True)
         self.price_encoder = nn.Sequential(
@@ -256,19 +370,15 @@ class NoGraphWorldModel(nn.Module):
         )
 
     def kl_divergence(self, q_mu, q_logvar, p_mu, p_logvar):
-        p_var = p_logvar.exp()
-        q_var = q_logvar.exp()
-        kl = (q_var + (q_mu - p_mu) ** 2) / (p_var + 1e-8) + p_logvar - q_logvar - 1
-        return 0.5 * kl.sum(dim=-1)
+        return _kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
 
     def reparameterize(self, mu, logvar):
-        if self.training:
-            std = (logvar * 0.5).exp()
-            eps = torch.randn_like(std)
-            return mu + eps * std
-        return mu
+        return _reparameterize(mu, logvar, self.training)
 
     def encode(self, price_seq, news_feat, macro_feat, edge_index, edge_weight):
+        price_seq = _align_feature_dim(price_seq, self.price_dim)
+        news_feat = _align_feature_dim(news_feat, self.news_dim)
+        macro_feat = _align_feature_dim(macro_feat, self.macro_dim)
         lstm_out, _ = self.price_lstm(price_seq)
         price_h = self.price_encoder(lstm_out).mean(dim=1)
         news_h = self.news_encoder(news_feat).mean(dim=1)
@@ -283,9 +393,14 @@ class NoGraphWorldModel(nn.Module):
     def imagine(self, prior_h, actions, horizon: int = 30):
         imagined = []
         h = prior_h
-        actions = actions.to(prior_h.device)
-        if actions.dim() == 2:
-            actions = actions.unsqueeze(1).expand(-1, horizon, -1)
+        actions = _prepare_action_sequence(
+            actions,
+            batch_size=prior_h.size(0),
+            horizon=horizon,
+            action_dim=self.action_dim,
+            device=prior_h.device,
+            dtype=prior_h.dtype,
+        )
         for t in range(horizon):
             a = actions[:, t]
             inp = torch.cat([h, a], dim=-1)
@@ -303,15 +418,12 @@ class NoGraphWorldModel(nn.Module):
         p_logvar = prior_stats[..., self.latent_dim:]
         kl = self.kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
 
-        imagined = self.imagine(z, action.unsqueeze(1).expand(-1, 30, -1), horizon=30)
+        imagined = self.imagine(z, action, horizon=30)
         price_pred = self.decoder_price(imagined).squeeze(-1)
         return_pred = self.decoder_return(imagined[:, -1])
         regime_logits = self.decoder_regime(imagined[:, -1])
 
-        loss = torch.tensor(0.0, device=z.device)
-        if price_target is not None and price_target.numel() > 0:
-            target = price_target[:, :, 0] if price_target.dim() == 3 else price_target
-            loss = F.mse_loss(price_pred, target)
+        loss = _mse_loss(price_pred, price_target)
 
         return {
             "z": z,
@@ -321,6 +433,7 @@ class NoGraphWorldModel(nn.Module):
             "return_pred": return_pred,
             "regime_logits": regime_logits,
             "loss": loss,
+            "vq_loss": z.new_tensor(0.0),
         }
 
 
@@ -349,6 +462,8 @@ class DreamerStyleRSSM(nn.Module):
         self.latent_dim = latent_dim
         self.hidden_dim = hidden_dim
         self.num_steps = num_steps
+        self.price_dim = price_dim
+        self.action_dim = action_dim
         self.price_encoder = nn.GRU(price_dim, hidden_dim, batch_first=True, num_layers=2, dropout=0.1)
         self.posterior = nn.Sequential(
             nn.LayerNorm(hidden_dim),
@@ -381,26 +496,26 @@ class DreamerStyleRSSM(nn.Module):
         )
 
     def reparameterize(self, mu, logvar):
-        if self.training:
-            std = (0.5 * logvar).exp()
-            return mu + torch.randn_like(std) * std
-        return mu
+        return _reparameterize(mu, logvar, self.training)
 
     def kl_divergence(self, q_mu, q_logvar, p_mu, p_logvar):
-        p_var = p_logvar.exp()
-        q_var = q_logvar.exp()
-        kl = (q_var + (q_mu - p_mu) ** 2) / (p_var + 1e-8) + p_logvar - q_logvar - 1
-        return 0.5 * kl.sum(dim=-1)
+        return _kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
 
     def forward(self, price_seq, news_feat=None, macro_feat=None, edge_index=None, edge_weight=None, action=None, price_target=None):
+        price_seq = _align_feature_dim(price_seq, self.price_dim)
         _, h_seq = self.price_encoder(price_seq)
         h_det = h_seq[-1]
         q_stats = self.posterior(h_det)
         q_mu, q_logvar = q_stats[:, : self.latent_dim], q_stats[:, self.latent_dim :]
         z = self.reparameterize(q_mu, q_logvar)
-        actions = action
-        if actions is None:
-            actions = torch.zeros(price_seq.size(0), 8, device=price_seq.device, dtype=price_seq.dtype)
+        actions = _prepare_action_sequence(
+            action,
+            batch_size=price_seq.size(0),
+            horizon=self.num_steps,
+            action_dim=self.action_dim,
+            device=price_seq.device,
+            dtype=price_seq.dtype,
+        )
         prior_stats = self.prior(h_det)
         p_mu, p_logvar = prior_stats[:, : self.latent_dim], prior_stats[:, self.latent_dim :]
         kl = self.kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
@@ -409,8 +524,8 @@ class DreamerStyleRSSM(nn.Module):
         states = []
         h = h_det
         z_t = z
-        for _ in range(self.num_steps):
-            h = self.rssm(torch.cat([z_t, actions], dim=-1), h)
+        for t in range(self.num_steps):
+            h = self.rssm(torch.cat([z_t, actions[:, t]], dim=-1), h)
             prior_stats = self.prior(h)
             p_mu = prior_stats[:, : self.latent_dim]
             p_logvar = prior_stats[:, self.latent_dim :]
@@ -423,10 +538,7 @@ class DreamerStyleRSSM(nn.Module):
         return_pred = self.return_head(state_path[:, -1])
         regime_logits = self.regime_head(state_path[:, -1])
 
-        loss = torch.tensor(0.0, device=price_seq.device)
-        if price_target is not None and price_target.numel() > 0:
-            target = price_target[:, :, 0] if price_target.dim() == 3 else price_target
-            loss = F.mse_loss(price_pred, target)
+        loss = _mse_loss(price_pred, price_target)
         return {
             "z": z,
             "prior_h": h_det,
@@ -435,5 +547,5 @@ class DreamerStyleRSSM(nn.Module):
             "return_pred": return_pred,
             "regime_logits": regime_logits,
             "loss": loss,
-            "vq_loss": torch.tensor(0.0, device=price_seq.device),
+            "vq_loss": price_seq.new_tensor(0.0),
         }

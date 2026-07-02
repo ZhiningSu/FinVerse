@@ -6,6 +6,8 @@ kl_weight: 0.1
 recon_weight: 1.0
 regime_weight: 0.05
 vq_weight: 0.05
+action_weight: 0.001
+policy_weight: 0.001
 lr: 3e-4
 weight_decay: 1e-4
 batch_size: 32

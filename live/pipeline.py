@@ -74,6 +74,10 @@ class LivePipelineConfig:
     top_k: int = 20
     mode: str = "heuristic_adapter"
     model_checkpoint: str = "outputs/paper_experiments/finverse/best_checkpoint.pt"
+    model_name: str = "finverse"
+    hidden_dim: int = 128
+    latent_dim: int = 128
+    device: str = "cpu"
     fetch_online: bool = False
     fetch_begin: str = "20230101"
     fetch_end: str = "20500101"
@@ -530,6 +534,184 @@ def run_finverse_inference_adapter(asset_features: list[dict[str, Any]], market_
     return outputs
 
 
+def _history_returns(raw: dict[str, list[dict[str, Any]]], ticker: str, trade_date: str, lookback: int = 30) -> np.ndarray | None:
+    rows = rows_until_date(raw.get(ticker, []), trade_date)
+    if len(rows) < lookback + 1:
+        return None
+    closes = np.asarray([float(row["close"]) for row in rows[-(lookback + 1):]], dtype=np.float32)
+    if np.any(closes <= 0):
+        return None
+    returns = closes[1:] / (closes[:-1] + 1e-8) - 1.0
+    return np.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+
+
+def _peer_tickers(asset: dict[str, Any], asset_features: list[dict[str, Any]], width: int = 6) -> list[str]:
+    target = asset["ticker"]
+    same_sector = [
+        row for row in asset_features
+        if row["ticker"] != target and row.get("sector") == asset.get("sector")
+    ]
+    others = [row for row in asset_features if row["ticker"] != target and row not in same_sector]
+    same_sector.sort(key=lambda row: abs(row["return_20d"] - asset["return_20d"]))
+    others.sort(key=lambda row: abs(row["return_20d"] - asset["return_20d"]))
+    peers = [row["ticker"] for row in [*same_sector, *others]][: width - 1]
+    while len(peers) < width - 1:
+        peers.append(target)
+    return [target, *peers]
+
+
+def _live_graph_sample(
+    asset: dict[str, Any],
+    asset_features: list[dict[str, Any]],
+    raw: dict[str, list[dict[str, Any]]],
+    trade_date: str,
+    market_state: dict[str, Any],
+    width: int = 6,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    tickers = _peer_tickers(asset, asset_features, width=width)
+    columns = []
+    for ticker in tickers:
+        returns = _history_returns(raw, ticker, trade_date)
+        if returns is None:
+            returns = _history_returns(raw, asset["ticker"], trade_date)
+        if returns is None:
+            returns = np.zeros(30, dtype=np.float32)
+        columns.append(np.clip(returns, -0.25, 0.25))
+    price_seq = np.stack(columns, axis=1).astype(np.float32)
+
+    macro_row = np.asarray(
+        [
+            market_state["market_return_20d"],
+            market_state["market_vol_20d"],
+            market_state["regime_probs"]["bull"],
+            market_state["regime_probs"]["sideway"],
+            market_state["regime_probs"]["bear"],
+            asset["return_5d"],
+            asset["return_20d"],
+            asset["vol_20d"],
+        ],
+        dtype=np.float32,
+    )
+    macro_feat = np.repeat(macro_row[None, :], 30, axis=0)
+    news_feat = np.zeros((30, 384), dtype=np.float32)
+    edge_index = np.asarray([[0, 0, 0, 0, 0], [1, 2, 3, 4, 5]], dtype=np.int64)
+    edge_weight = np.ones(5, dtype=np.float32)
+    return price_seq, news_feat, macro_feat, edge_index, edge_weight
+
+
+def _model_regime_probs(logits) -> dict[str, float]:
+    import torch
+
+    if logits.dim() == 3:
+        logits = logits[:, : min(5, logits.size(1)), :].mean(dim=1)
+    probs = torch.softmax(logits[:, :3], dim=-1)[0].detach().cpu().numpy()
+    return {"bear": float(probs[0]), "sideway": float(probs[1]), "bull": float(probs[2])}
+
+
+def _infer_checkpoint_num_tickers(checkpoint: Path, fallback: int) -> int:
+    import torch
+
+    try:
+        ckpt = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        state = ckpt.get("model_state", ckpt)
+        for key in (
+            "decoder.return_head.2.weight",
+            "decoder_return.2.weight",
+            "return_head.2.weight",
+            "decoder.decoder_return.2.weight",
+        ):
+            if key in state and state[key].dim() == 2:
+                return int(state[key].shape[0])
+    except Exception:
+        pass
+    return fallback
+
+
+def _load_live_model(config: LivePipelineConfig, num_tickers: int):
+    import torch
+
+    from evaluate import load_model
+
+    checkpoint = Path(config.model_checkpoint)
+    if not checkpoint.is_absolute():
+        checkpoint = PROJECT_ROOT / checkpoint
+    if not checkpoint.exists():
+        raise FileNotFoundError(f"model checkpoint not found: {checkpoint}")
+    num_tickers = _infer_checkpoint_num_tickers(checkpoint, num_tickers)
+    device = torch.device(config.device if config.device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu"))
+    model = load_model(
+        str(checkpoint),
+        config.model_name,
+        device,
+        hidden_dim=config.hidden_dim,
+        latent_dim=config.latent_dim,
+        num_tickers=num_tickers,
+    )
+    return model, device, checkpoint
+
+
+def run_finverse_checkpoint_inference(
+    asset_features: list[dict[str, Any]],
+    raw: dict[str, list[dict[str, Any]]],
+    trade_date: str,
+    market_state: dict[str, Any],
+    config: LivePipelineConfig,
+) -> list[dict[str, Any]]:
+    import torch
+
+    model, device, _ = _load_live_model(config, num_tickers=max(len(asset_features), 1))
+    outputs = []
+    for asset in asset_features:
+        price_seq, news_feat, macro_feat, edge_index, edge_weight = _live_graph_sample(
+            asset,
+            asset_features,
+            raw,
+            trade_date,
+            market_state,
+        )
+        with torch.inference_mode():
+            out = model(
+                torch.from_numpy(price_seq).unsqueeze(0).to(device),
+                torch.from_numpy(news_feat).unsqueeze(0).to(device),
+                torch.from_numpy(macro_feat).unsqueeze(0).to(device),
+                torch.from_numpy(edge_index).unsqueeze(0).to(device),
+                torch.from_numpy(edge_weight).unsqueeze(0).to(device),
+                torch.zeros(1, 8, device=device),
+            )
+        pred_path = out["price_pred"][0].detach().cpu().float().numpy()
+        pred_path = np.nan_to_num(pred_path, nan=0.0, posinf=0.0, neginf=0.0)
+        expected_return = _clip(float(pred_path[-1]), -0.20, 0.20)
+        predicted_volatility = float(max(np.std(pred_path), asset["vol_20d"]) * math.sqrt(30.0))
+        predicted_downside = float(max(0.0, -np.min(pred_path), predicted_volatility * 0.25 - expected_return * 0.15))
+        regime_probs = _model_regime_probs(out["regime_logits"]) if "regime_logits" in out else market_state["regime_probs"]
+        rollout_path = [
+            {
+                "horizon": idx + 1,
+                "predicted_return": _clip(float(value), -0.30, 0.30),
+                "predicted_close": float(asset["close"] * (1.0 + _clip(float(value), -0.30, 0.30))),
+            }
+            for idx, value in enumerate(pred_path[:30])
+        ]
+        temporal_ids = out.get("temporal_token_ids")
+        cross_ids = out.get("cross_token_ids")
+        outputs.append(
+            {
+                **asset,
+                "expected_return_30d": expected_return,
+                "predicted_volatility": predicted_volatility,
+                "predicted_downside": predicted_downside,
+                "regime_probs": regime_probs,
+                "rollout_path": rollout_path,
+                "token_summary": {
+                    "temporal_token": int(temporal_ids.detach().cpu().flatten()[0]) if temporal_ids is not None else stable_token_id(asset["ticker"], "temporal"),
+                    "cross_asset_token": int(cross_ids.detach().cpu().flatten()[0]) if cross_ids is not None else stable_token_id(asset["sector"], "cross"),
+                },
+                "model_source": "finverse_checkpoint",
+            }
+        )
+    return outputs
+
+
 STRATEGIES = {
     "Aggressive Growth": {
         "description": "偏向高预测收益和高 bull 概率的资产。",
@@ -824,8 +1006,25 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
     stage("feature_build", "success", f"built features for {len(asset_features)} assets")
 
     market_state = _market_state(asset_features)
-    model_outputs = run_finverse_inference_adapter(asset_features, market_state)
-    stage("inference", "success", f"adapter mode={config.mode}; model checkpoint reserved")
+    inference_mode = config.mode
+    if config.mode in {"finverse_checkpoint", "model_checkpoint", "checkpoint"}:
+        try:
+            model_outputs = run_finverse_checkpoint_inference(
+                asset_features,
+                snapshot["raw"],
+                snapshot["trade_date"],
+                market_state,
+                config,
+            )
+            stage("inference", "success", f"model checkpoint inference: {config.model_checkpoint}")
+            inference_mode = "finverse_checkpoint"
+        except Exception as exc:
+            model_outputs = run_finverse_inference_adapter(asset_features, market_state)
+            stage("inference", "warning", f"checkpoint inference failed; fallback heuristic_adapter: {exc}")
+            inference_mode = "heuristic_adapter_fallback"
+    else:
+        model_outputs = run_finverse_inference_adapter(asset_features, market_state)
+        stage("inference", "success", f"adapter mode={config.mode}; model checkpoint reserved")
 
     strategy = choose_strategy(market_state)
     stage("strategy", "success", strategy["name"])
@@ -858,7 +1057,7 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
         "language": market_language(market),
         "trade_date": snapshot["trade_date"],
         "last_updated_at": utc_now(),
-        "mode": config.mode,
+        "mode": inference_mode,
         "source": f"{snapshot['source']}+static_seed_fallback" if ranking_fallback_note else snapshot["source"],
         "model_checkpoint": config.model_checkpoint,
         "pipeline_status": {"run_id": run_id, "stages": stages},

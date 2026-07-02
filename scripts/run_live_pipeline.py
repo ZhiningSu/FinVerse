@@ -20,6 +20,12 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=20)
     parser.add_argument("--output-dir", default="outputs/live")
     parser.add_argument("--data-live-dir", default="data/live")
+    parser.add_argument("--mode", default="heuristic_adapter", choices=["heuristic_adapter", "finverse_checkpoint", "model_checkpoint", "checkpoint"])
+    parser.add_argument("--model-checkpoint", default="outputs/paper_experiments/finverse/best_checkpoint.pt")
+    parser.add_argument("--model-name", default="finverse")
+    parser.add_argument("--hidden-dim", type=int, default=128)
+    parser.add_argument("--latent-dim", type=int, default=128)
+    parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
 
     result = run_live_pipeline(
@@ -28,6 +34,12 @@ def main() -> None:
             output_dir=Path(args.output_dir),
             data_live_dir=Path(args.data_live_dir),
             top_k=args.top_k,
+            mode=args.mode,
+            model_checkpoint=args.model_checkpoint,
+            model_name=args.model_name,
+            hidden_dim=args.hidden_dim,
+            latent_dim=args.latent_dim,
+            device=args.device,
         ),
         trade_date=args.trade_date,
         force_fetch=args.force_fetch,

@@ -19,12 +19,16 @@ class WorldModelLoss(nn.Module):
         recon_weight: float = 1.0,
         regime_weight: float = 0.05,
         vq_weight: float = 0.05,
+        action_weight: float = 0.001,
+        policy_weight: float = 0.001,
     ):
         super().__init__()
         self.kl_weight = kl_weight
         self.recon_weight = recon_weight
         self.regime_weight = regime_weight
         self.vq_weight = vq_weight
+        self.action_weight = action_weight
+        self.policy_weight = policy_weight
 
     @staticmethod
     def _select_regime_logits(logits: torch.Tensor) -> torch.Tensor:
@@ -45,20 +49,35 @@ class WorldModelLoss(nn.Module):
         loss = model_output["loss"]
         kl = model_output["kl"].mean()
         vq_loss = model_output.get("vq_loss", torch.tensor(0.0, device=loss.device))
+        action_loss = model_output.get("action_reg_loss", torch.tensor(0.0, device=loss.device))
+        policy_loss = model_output.get("action_policy_loss", torch.tensor(0.0, device=loss.device))
         regime_loss = torch.tensor(0.0, device=loss.device)
         if regime_target is not None and "regime_logits" in model_output:
             target = regime_target.long()
             logits = self._select_regime_logits(model_output["regime_logits"])
             weights = self._batch_class_weights(target)
             regime_loss = F.cross_entropy(logits, target, weight=weights)
-        total = loss + self.kl_weight * kl + self.vq_weight * vq_loss + self.regime_weight * regime_loss
+        total = (
+            self.recon_weight * loss
+            + self.kl_weight * kl
+            + self.vq_weight * vq_loss
+            + self.regime_weight * regime_loss
+            + self.action_weight * action_loss
+            + self.policy_weight * policy_loss
+        )
         return total, {
             "kl": kl.item(),
             "recon": loss.item(),
             "vq": vq_loss.item(),
             "regime": regime_loss.item(),
+            "action": action_loss.item(),
+            "policy": policy_loss.item(),
             "temporal_perplexity": self._as_float(model_output.get("temporal_perplexity", 0.0)),
             "cross_perplexity": self._as_float(model_output.get("cross_perplexity", 0.0)),
+            "temporal_active_codes": self._as_float(model_output.get("temporal_active_codes", 0.0)),
+            "cross_active_codes": self._as_float(model_output.get("cross_active_codes", 0.0)),
+            "temporal_dead_codes": self._as_float(model_output.get("temporal_dead_codes", 0.0)),
+            "cross_dead_codes": self._as_float(model_output.get("cross_dead_codes", 0.0)),
         }
 
     @staticmethod
@@ -69,9 +88,37 @@ class WorldModelLoss(nn.Module):
 
 
 class BaselineLoss(nn.Module):
+    def __init__(self, regime_weight: float = 0.05):
+        super().__init__()
+        self.regime_weight = regime_weight
+
+    @staticmethod
+    def _select_regime_logits(logits: torch.Tensor) -> torch.Tensor:
+        if logits.dim() == 3:
+            logits = logits[:, : min(5, logits.size(1)), :].mean(dim=1)
+        return logits[:, :3]
+
     def forward(self, model_output, price_target=None, regime_target=None):
         loss = model_output["loss"]
-        return loss, {"kl": 0.0, "recon": loss.item()}
+        regime_loss = torch.tensor(0.0, device=loss.device)
+        if regime_target is not None and "regime_logits" in model_output:
+            logits = self._select_regime_logits(model_output["regime_logits"])
+            regime_loss = F.cross_entropy(logits, regime_target.long())
+        total = loss + self.regime_weight * regime_loss
+        price_loss = model_output.get("price_loss", loss)
+        return_loss = model_output.get("return_loss", torch.tensor(0.0, device=loss.device))
+        return total, {
+            "kl": 0.0,
+            "recon": self._as_float(price_loss),
+            "return": self._as_float(return_loss),
+            "regime": self._as_float(regime_loss),
+        }
+
+    @staticmethod
+    def _as_float(value):
+        if isinstance(value, torch.Tensor):
+            return value.detach().item()
+        return float(value)
 
 
 class Trainer:
@@ -110,9 +157,15 @@ class Trainer:
             "val_vq": [],
             "kl": [],
             "recon": [],
+            "return": [],
             "vq": [],
             "regime": [],
+            "action": [],
+            "policy": [],
+            "val_return": [],
             "val_regime": [],
+            "val_action": [],
+            "val_policy": [],
             "temporal_perplexity": [],
             "cross_perplexity": [],
         }
@@ -122,8 +175,11 @@ class Trainer:
         epoch_losses = []
         epoch_kls = []
         epoch_recons = []
+        epoch_returns = []
         epoch_vqs = []
         epoch_regimes = []
+        epoch_actions = []
+        epoch_policies = []
         epoch_temporal_ppl = []
         epoch_cross_ppl = []
 
@@ -151,8 +207,11 @@ class Trainer:
             epoch_losses.append(total_loss.item())
             epoch_kls.append(metrics["kl"])
             epoch_recons.append(metrics["recon"])
+            epoch_returns.append(metrics.get("return", 0.0))
             epoch_vqs.append(metrics.get("vq", 0.0))
             epoch_regimes.append(metrics.get("regime", 0.0))
+            epoch_actions.append(metrics.get("action", 0.0))
+            epoch_policies.append(metrics.get("policy", 0.0))
             epoch_temporal_ppl.append(metrics.get("temporal_perplexity", 0.0))
             epoch_cross_ppl.append(metrics.get("cross_perplexity", 0.0))
 
@@ -161,16 +220,22 @@ class Trainer:
                 pbar.set_postfix(
                     loss=f"{total_loss.item():.4f}",
                     kl=f"{metrics['kl']:.4f}",
+                    ret=f"{metrics.get('return', 0.0):.4f}",
                     vq=f"{metrics.get('vq', 0.0):.4f}",
                     regime=f"{metrics.get('regime', 0.0):.4f}",
+                    action=f"{metrics.get('action', 0.0):.4f}",
+                    policy=f"{metrics.get('policy', 0.0):.4f}",
                 )
 
         avg_loss = sum(epoch_losses) / len(epoch_losses)
         self.history["train_loss"].append(avg_loss)
         self.history["kl"].append(sum(epoch_kls) / len(epoch_kls))
         self.history["recon"].append(sum(epoch_recons) / len(epoch_recons))
+        self.history["return"].append(sum(epoch_returns) / len(epoch_returns))
         self.history["vq"].append(sum(epoch_vqs) / len(epoch_vqs))
         self.history["regime"].append(sum(epoch_regimes) / len(epoch_regimes))
+        self.history["action"].append(sum(epoch_actions) / len(epoch_actions))
+        self.history["policy"].append(sum(epoch_policies) / len(epoch_policies))
         self.history["temporal_perplexity"].append(sum(epoch_temporal_ppl) / len(epoch_temporal_ppl))
         self.history["cross_perplexity"].append(sum(epoch_cross_ppl) / len(epoch_cross_ppl))
 
@@ -210,7 +275,10 @@ class Trainer:
         self.history["val_recon"].append(self.last_val_metrics.get("recon", avg_val))
         self.history["val_kl"].append(self.last_val_metrics.get("kl", 0.0))
         self.history["val_vq"].append(self.last_val_metrics.get("vq", 0.0))
+        self.history["val_return"].append(self.last_val_metrics.get("return", 0.0))
         self.history["val_regime"].append(self.last_val_metrics.get("regime", 0.0))
+        self.history["val_action"].append(self.last_val_metrics.get("action", 0.0))
+        self.history["val_policy"].append(self.last_val_metrics.get("policy", 0.0))
         return avg_val
 
     def save_checkpoint(self, epoch: int, is_best: bool = False):
@@ -231,11 +299,17 @@ class Trainer:
         self.optimizer.load_state_dict(ckpt["optimizer_state"])
         self.history = ckpt.get("history", {"train_loss": [], "val_loss": [], "kl": [], "recon": []})
         self.history.setdefault("vq", [])
+        self.history.setdefault("return", [])
         self.history.setdefault("regime", [])
+        self.history.setdefault("action", [])
+        self.history.setdefault("policy", [])
         self.history.setdefault("val_regime", [])
+        self.history.setdefault("val_action", [])
+        self.history.setdefault("val_policy", [])
         self.history.setdefault("val_recon", [])
         self.history.setdefault("val_kl", [])
         self.history.setdefault("val_vq", [])
+        self.history.setdefault("val_return", [])
         self.history.setdefault("temporal_perplexity", [])
         self.history.setdefault("cross_perplexity", [])
         self.global_step = ckpt.get("global_step", 0)

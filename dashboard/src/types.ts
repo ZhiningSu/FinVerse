@@ -35,12 +35,19 @@ export type MarketState = {
 
 export type AssetRecommendation = {
   rank: number;
+  model_rank?: number;
+  live_rank?: number;
   ticker: string;
   name: string;
   type: "stock" | "etf";
   sector: string;
   close: number;
   score: number;
+  model_score?: number;
+  live_score?: number;
+  live_price?: number | null;
+  live_change_percent?: number | null;
+  hot_theme?: boolean;
   expected_return_30d: number;
   predicted_volatility: number;
   predicted_downside: number;
@@ -73,6 +80,7 @@ export type RecommendationResponse = {
   market_state: MarketState;
   top_industries: IndustryRecommendation[];
   top_assets: AssetRecommendation[];
+  all_assets?: AssetRecommendation[];
   mode: string;
 };
 

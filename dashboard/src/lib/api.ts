@@ -1,7 +1,8 @@
 import type { AssetDetail, AssetRecommendation, LiveQuote, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse } from "@/types";
 
 type StaticAsset = AssetRecommendation & Pick<AssetDetail, "history_close" | "rollout_path">;
-type StaticRecommendation = RecommendationResponse & {
+type StaticRecommendation = Omit<RecommendationResponse, "all_assets" | "top_assets"> & {
+  top_assets: StaticAsset[];
   all_assets?: StaticAsset[];
   pipeline_status?: { stages?: PipelineStatus["stages"] };
   model_checkpoint?: string;
@@ -63,7 +64,7 @@ async function getStaticLiveQuotes(market: Market, tickers: string[] = []): Prom
   const allAssets = [...(payload.all_assets ?? []), ...payload.top_assets];
   const byTicker = new Map(allAssets.map((asset) => [asset.ticker.toUpperCase(), asset]));
   const selected = tickers.length
-    ? tickers.map((ticker) => byTicker.get(ticker.toUpperCase())).filter((asset): asset is StaticAsset | AssetRecommendation => Boolean(asset))
+    ? tickers.map((ticker) => byTicker.get(ticker.toUpperCase())).filter((asset): asset is StaticAsset => Boolean(asset))
     : payload.top_assets;
   return {
     market,

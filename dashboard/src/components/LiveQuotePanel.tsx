@@ -6,6 +6,7 @@ type LiveQuotePanelProps = {
   language: Language;
   loading?: boolean;
   error?: string | null;
+  refreshIntervalMs?: number;
 };
 
 const COPY = {
@@ -21,6 +22,7 @@ const COPY = {
     change: "Change",
     asOf: "As of",
     source: "Source",
+    autoRefresh: "Auto refresh",
   },
   zh: {
     eyebrow: "实盘行情",
@@ -34,6 +36,7 @@ const COPY = {
     change: "涨跌幅",
     asOf: "截至",
     source: "来源",
+    autoRefresh: "自动刷新",
   },
 };
 
@@ -56,10 +59,11 @@ function tone(value: number | null) {
   return "text-slate-300";
 }
 
-export function LiveQuotePanel({ data, language, loading = false, error = null }: LiveQuotePanelProps) {
+export function LiveQuotePanel({ data, language, loading = false, error = null, refreshIntervalMs }: LiveQuotePanelProps) {
   const copy = COPY[language];
   const quotes = data?.quotes ?? [];
   const statusLabel = data?.is_realtime ? copy.realtime : copy.snapshot;
+  const refreshSeconds = refreshIntervalMs ? Math.round(refreshIntervalMs / 1000) : null;
 
   return (
     <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/25">
@@ -73,7 +77,7 @@ export function LiveQuotePanel({ data, language, loading = false, error = null }
           <p className="mt-2 max-w-4xl text-sm text-slate-400">{copy.subtitle}</p>
         </div>
         <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs text-cyan-100">
-          {statusLabel}
+          {statusLabel}{refreshSeconds ? ` · ${copy.autoRefresh} ${refreshSeconds}s` : ""}
         </div>
       </div>
 

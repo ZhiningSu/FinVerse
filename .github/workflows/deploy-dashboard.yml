@@ -68,6 +68,7 @@ jobs:
         env:
           GITHUB_PAGES: "true"
           VITE_DATA_MODE: static
+          VITE_LIVE_API_BASE: ${{ vars.LIVE_API_BASE }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

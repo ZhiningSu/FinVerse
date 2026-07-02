@@ -98,6 +98,7 @@ def latest_recommendations(market: str = "us") -> Dict[str, Any]:
         "market_state": payload["market_state"],
         "top_industries": payload.get("top_industries", []),
         "top_assets": payload["top_assets"],
+        "all_assets": payload.get("all_assets", payload["top_assets"]),
         "mode": payload["mode"],
     }
 

@@ -8,12 +8,15 @@ import { PipelinePanel } from "@/components/PipelinePanel";
 import { RegimeGauge } from "@/components/RegimeGauge";
 import { RolloutChart } from "@/components/RolloutChart";
 import { getAssetDetail, getLatestRecommendation, getLiveQuotes, getPipelineStatus, runPipeline } from "@/lib/api";
-import type { AssetDetail, Language, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
+import type { AssetDetail, AssetRecommendation, Language, LiveQuote, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
 
 type HomeProps = {
   initialMarket?: Market;
   initialLanguage?: Language;
 };
+
+const QUOTE_REFRESH_MS = 30_000;
+const LIVE_RANKING_SIZE = 20;
 
 const COPY = {
   en: {
@@ -35,7 +38,7 @@ const COPY = {
     marketRegime: "Market Regime",
     topAssets: "Top Assets",
     return20d: "20d return",
-    rankedDetail: "stocks / ETFs ranked",
+    rankedDetail: "live-adjusted stocks / ETFs ranked",
     selectedStrategy: "Selected strategy",
     confidence: "confidence",
     diagnosticOnly: "diagnostic only",
@@ -64,7 +67,7 @@ const COPY = {
     marketRegime: "市场阶段",
     topAssets: "推荐资产",
     return20d: "20日收益",
-    rankedDetail: "股票 / ETF 已排序",
+    rankedDetail: "实时调整后的股票 / ETF 排序",
     selectedStrategy: "选中的策略",
     confidence: "置信度",
     diagnosticOnly: "仅作诊断",
@@ -102,6 +105,8 @@ const REGIME_COPY: Record<string, Record<Language, string>> = {
 };
 
 const REASON_ZH: Record<string, string> = {
+  "live momentum is positive": "实时动量为正",
+  "hot technology theme exposure": "科技/芯片/存储等热点主题暴露",
   "predicted upside ranks high": "预测上行空间排名较高",
   "risk estimate is relatively low": "风险估计相对较低",
   "downside estimate is controlled": "下行风险较可控",
@@ -120,6 +125,59 @@ function displayRegime(regime: string, language: Language) {
 
 function displayReason(reason: string, language: Language) {
   return language === "zh" ? REASON_ZH[reason] ?? reason : reason;
+}
+
+function clip(value: number, low: number, high: number) {
+  return Math.min(Math.max(value, low), high);
+}
+
+function hotThemeBoost(asset: AssetRecommendation, market: Market) {
+  const text = `${asset.ticker} ${asset.name} ${asset.sector}`.toLowerCase();
+  const cnThemes = ["科技", "芯片", "半导体", "存储", "科创", "人工智能", "算力", "通信", "电子"];
+  const usThemes = ["technology", "semiconductor", "chip", "storage", "memory", "ai", "nvidia", "amd", "micron", "broadcom"];
+  const themes = market === "cn" ? cnThemes : usThemes;
+  if (themes.some((term) => text.includes(term))) return 0.09;
+  if (asset.sector === "Technology" || asset.sector === "科技") return 0.06;
+  return 0;
+}
+
+function liveMomentumBoost(quote?: LiveQuote) {
+  const change = quote?.change_percent;
+  if (change === null || change === undefined) return 0;
+  return clip(change * 4, -0.08, 0.12);
+}
+
+function liveAdjustedAssets(
+  recommendation: RecommendationResponse,
+  liveQuotes: LiveQuotesResponse | null,
+  market: Market,
+) {
+  const quoteByTicker = new Map((liveQuotes?.quotes ?? []).map((quote) => [quote.ticker.toUpperCase(), quote]));
+  const candidates = recommendation.all_assets?.length ? recommendation.all_assets : recommendation.top_assets;
+  return candidates
+    .map((asset) => {
+      const quote = quoteByTicker.get(asset.ticker.toUpperCase());
+      const themeBoost = hotThemeBoost(asset, market);
+      const momentumBoost = liveMomentumBoost(quote);
+      const liveScore = asset.score + themeBoost + momentumBoost;
+      return {
+        ...asset,
+        model_rank: asset.rank,
+        model_score: asset.score,
+        live_score: liveScore,
+        live_price: quote?.price ?? null,
+        live_change_percent: quote?.change_percent ?? null,
+        hot_theme: themeBoost > 0,
+        reasons: [
+          ...(momentumBoost > 0.02 ? ["live momentum is positive"] : []),
+          ...(themeBoost > 0 ? ["hot technology theme exposure"] : []),
+          ...asset.reasons,
+        ],
+      };
+    })
+    .sort((left, right) => (right.live_score ?? right.score) - (left.live_score ?? left.score))
+    .slice(0, LIVE_RANKING_SIZE)
+    .map((asset, index) => ({ ...asset, rank: index + 1, live_rank: index + 1 }));
 }
 
 export default function Home({ initialMarket = "us", initialLanguage = "en" }: HomeProps) {
@@ -179,21 +237,30 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   useEffect(() => {
     if (!recommendation) return;
     let active = true;
-    const tickers = recommendation.top_assets.map((item) => item.ticker);
-    setQuoteLoading(true);
-    setQuoteError(null);
-    getLiveQuotes(marketId, tickers)
-      .then((response) => {
+    const candidates = recommendation.all_assets?.length ? recommendation.all_assets : recommendation.top_assets;
+    const tickers = candidates.map((item) => item.ticker);
+
+    async function refreshQuotes(showLoading: boolean) {
+      if (showLoading) setQuoteLoading(true);
+      setQuoteError(null);
+      try {
+        const response = await getLiveQuotes(marketId, tickers);
         if (active) setLiveQuotes(response);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (active) setQuoteError(err instanceof Error ? err.message : "Unable to load live quotes.");
-      })
-      .finally(() => {
-        if (active) setQuoteLoading(false);
-      });
+      } finally {
+        if (active && showLoading) setQuoteLoading(false);
+      }
+    }
+
+    refreshQuotes(true);
+    const timer = window.setInterval(() => {
+      refreshQuotes(false);
+    }, QUOTE_REFRESH_MS);
+
     return () => {
       active = false;
+      window.clearInterval(timer);
     };
   }, [marketId, recommendation]);
 
@@ -206,6 +273,7 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   const localizedStrategy = displayStrategy(strategy, language);
   const localizedRegime = displayRegime(market.regime, language);
   const explanations = asset?.explanation?.length ? asset.explanation.map((item) => displayReason(item, language)) : [copy.selectAsset];
+  const displayedAssets = liveAdjustedAssets(recommendation, liveQuotes, marketId);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#08111F] text-slate-100">
@@ -280,11 +348,17 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
           <MetricCard label={copy.tradeDate} value={recommendation.trade_date} detail={recommendation.mode} tone="cyan" />
           <MetricCard label={copy.strategy} value={localizedStrategy.name} detail={localizedStrategy.description} tone="amber" />
           <MetricCard label={copy.marketRegime} value={localizedRegime} detail={`${copy.return20d} ${(market.market_return_20d * 100).toFixed(2)}%`} tone="slate" />
-          <MetricCard label={copy.topAssets} value={String(recommendation.top_assets.length)} detail={copy.rankedDetail} tone="cyan" />
+          <MetricCard label={copy.topAssets} value={String(displayedAssets.length)} detail={copy.rankedDetail} tone="cyan" />
         </section>
 
         <section className="mt-6">
-          <LiveQuotePanel data={liveQuotes} language={language} loading={quoteLoading} error={quoteError} />
+          <LiveQuotePanel
+            data={liveQuotes}
+            language={language}
+            loading={quoteLoading}
+            error={quoteError}
+            refreshIntervalMs={QUOTE_REFRESH_MS}
+          />
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -314,7 +388,7 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
 
         <section className="mt-6 grid items-start gap-6 xl:grid-cols-[1.35fr_0.95fr]">
           <AssetTable
-            assets={recommendation.top_assets}
+            assets={displayedAssets}
             onSelect={selectAsset}
             language={language}
             selectedTicker={asset?.ticker}

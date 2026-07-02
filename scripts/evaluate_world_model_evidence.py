@@ -55,6 +55,12 @@ def _macro_f1(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) -> f
     return float(np.mean(scores))
 
 
+def _select_regime_logits(logits: torch.Tensor) -> torch.Tensor:
+    if logits.dim() == 3:
+        logits = logits[:, : min(5, logits.size(1)), :].mean(dim=1)
+    return logits[:, :3]
+
+
 def _format_float(value: float) -> str:
     return f"{value:.4f}"
 
@@ -321,10 +327,8 @@ def evaluate_world_model(
                 targets_1.extend(target_h.squeeze(-1).cpu().numpy().tolist())
 
         if "regime_logits" in out:
-            logits = out["regime_logits"]
-            if logits.dim() == 3:
-                logits = logits[:, -1]
-            pred_regime = logits[:, :3].argmax(dim=-1).cpu().numpy()
+            logits = _select_regime_logits(out["regime_logits"])
+            pred_regime = logits.argmax(dim=-1).cpu().numpy()
             if supervised_regime is None:
                 realized = target_path[:, 0, 0].detach().cpu().numpy()
                 true_regime = _regime_labels(realized, bear_q, bull_q)

@@ -17,6 +17,7 @@ TOP_K_GRAPH = 5
 REGIME_LOOKAHEAD = 5
 REGIME_BEAR_THRESHOLD = -0.01
 REGIME_BULL_THRESHOLD = 0.01
+GRAPH_WIDTH = TOP_K_GRAPH + 1
 
 _PRICE_BUFFER = None
 _PRICE_STATS = None
@@ -178,7 +179,7 @@ def _make_macro_seq(news_by_date: dict, date_str: str | int, lookback: int = LOO
 def _make_regime_label(price_target: np.ndarray) -> int:
     target = price_target
     if target.ndim == 2:
-        target = target[:REGIME_LOOKAHEAD, 0]
+        target = target[:REGIME_LOOKAHEAD, :]
     else:
         target = target[:REGIME_LOOKAHEAD]
     score = float(np.nanmean(target))
@@ -187,6 +188,13 @@ def _make_regime_label(price_target: np.ndarray) -> int:
     if score >= REGIME_BULL_THRESHOLD:
         return 2
     return 1
+
+
+def _pad_feature_width(array: np.ndarray, width: int = GRAPH_WIDTH) -> np.ndarray:
+    if array.shape[1] >= width:
+        return array[:, :width]
+    pad = np.zeros((array.shape[0], width - array.shape[1]), dtype=array.dtype)
+    return np.concatenate([array, pad], axis=1)
 
 
 class FinWorldDataset(Dataset):
@@ -247,7 +255,7 @@ class FinWorldDataset(Dataset):
         return len(self._meta)
 
     def _build_edges(self, meta):
-        n = meta["n_graph"]
+        n = GRAPH_WIDTH
         edges = []
         for j in range(1, n):
             edges.append([0, j])
@@ -269,6 +277,9 @@ class FinWorldDataset(Dataset):
             edge_weight = torch.rand(TOP_K_GRAPH)
             scale = 0.02 if self.target_mode == "return" else 1.0
             price_target = (np.random.randn(HORIZON, 5) * scale).astype(np.float32)
+            regime_target = _make_regime_label(price_target)
+            price_seq = _pad_feature_width(price_seq)
+            price_target = _pad_feature_width(price_target)
             action = np.zeros(8, dtype=np.float32)
         else:
             si = meta["ticker_idx"]
@@ -285,6 +296,7 @@ class FinWorldDataset(Dataset):
 
             lookback_slice = self.price_buffer[date_idx - LOOKBACK:date_idx, g_indices]
             price_seq = ((lookback_slice - mu) / sigma).astype(np.float32)
+            price_seq = _pad_feature_width(price_seq)
 
             horizon_slice = self.price_buffer[date_idx:date_idx + HORIZON, g_indices]
             if self.target_mode == "return":
@@ -293,6 +305,8 @@ class FinWorldDataset(Dataset):
                 price_target = np.nan_to_num(price_target, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
             else:
                 price_target = ((horizon_slice - mu) / sigma).astype(np.float32)
+            regime_target = _make_regime_label(price_target)
+            price_target = _pad_feature_width(price_target)
 
             date_str = str(date_idx)
             news_feat = _make_news_seq(self.news_by_date, date_str)
@@ -301,8 +315,6 @@ class FinWorldDataset(Dataset):
             action = np.zeros(8, dtype=np.float32)
 
             edge_index, edge_weight = self._build_edges(meta)
-
-        regime_target = _make_regime_label(price_target)
 
         return {
             "price_seq": torch.from_numpy(price_seq),

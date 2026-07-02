@@ -26,17 +26,31 @@ class WorldModelLoss(nn.Module):
         self.regime_weight = regime_weight
         self.vq_weight = vq_weight
 
+    @staticmethod
+    def _select_regime_logits(logits: torch.Tensor) -> torch.Tensor:
+        if logits.dim() == 3:
+            # Regime labels describe the near-future market state, so train on
+            # the first week of imagined states instead of the farthest rollout.
+            logits = logits[:, : min(5, logits.size(1)), :].mean(dim=1)
+        return logits[:, :3]
+
+    @staticmethod
+    def _batch_class_weights(target: torch.Tensor, num_classes: int = 3) -> torch.Tensor:
+        counts = torch.bincount(target.long(), minlength=num_classes).float()
+        weights = target.numel() / (num_classes * counts.clamp_min(1.0))
+        weights = torch.clamp(weights, 0.25, 4.0)
+        return weights.to(target.device)
+
     def forward(self, model_output, price_target=None, regime_target=None):
         loss = model_output["loss"]
         kl = model_output["kl"].mean()
         vq_loss = model_output.get("vq_loss", torch.tensor(0.0, device=loss.device))
         regime_loss = torch.tensor(0.0, device=loss.device)
         if regime_target is not None and "regime_logits" in model_output:
-            logits = model_output["regime_logits"]
-            if logits.dim() == 3:
-                logits = logits[:, -1, :]
-            logits = logits[:, :3]
-            regime_loss = F.cross_entropy(logits, regime_target.long())
+            target = regime_target.long()
+            logits = self._select_regime_logits(model_output["regime_logits"])
+            weights = self._batch_class_weights(target)
+            regime_loss = F.cross_entropy(logits, target, weight=weights)
         total = loss + self.kl_weight * kl + self.vq_weight * vq_loss + self.regime_weight * regime_loss
         return total, {
             "kl": kl.item(),

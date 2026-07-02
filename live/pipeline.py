@@ -1314,21 +1314,65 @@ def run_finverse_checkpoint_inference(
 
 
 STRATEGIES = {
+    "Hot Growth": {
+        "description": "偏向模型收益、近期动量、新闻热度和 AI/半导体等主题热度。",
+        "weights": {
+            "expected_return": 0.38,
+            "momentum": 0.22,
+            "news_hotness": 0.16,
+            "theme_heat": 0.14,
+            "bull": 0.06,
+            "low_risk": 0.02,
+            "low_downside": 0.02,
+        },
+    },
     "Aggressive Growth": {
         "description": "偏向高预测收益和高 bull 概率的资产。",
-        "weights": {"expected_return": 0.48, "low_risk": 0.08, "low_downside": 0.06, "bull": 0.22, "momentum": 0.16},
+        "weights": {
+            "expected_return": 0.42,
+            "momentum": 0.22,
+            "news_hotness": 0.12,
+            "theme_heat": 0.10,
+            "bull": 0.08,
+            "low_risk": 0.04,
+            "low_downside": 0.02,
+        },
     },
     "Balanced Growth": {
         "description": "在预测收益、风险和稳定性之间折中。",
-        "weights": {"expected_return": 0.34, "low_risk": 0.20, "low_downside": 0.16, "bull": 0.12, "momentum": 0.18},
+        "weights": {
+            "expected_return": 0.34,
+            "momentum": 0.20,
+            "news_hotness": 0.12,
+            "theme_heat": 0.10,
+            "low_risk": 0.10,
+            "low_downside": 0.08,
+            "bull": 0.06,
+        },
     },
     "Defensive Quality": {
         "description": "偏向较低风险、较低 downside 和防御型行业。",
-        "weights": {"expected_return": 0.18, "low_risk": 0.34, "low_downside": 0.28, "bull": 0.04, "momentum": 0.16},
+        "weights": {
+            "expected_return": 0.24,
+            "low_risk": 0.22,
+            "low_downside": 0.18,
+            "momentum": 0.16,
+            "news_hotness": 0.08,
+            "theme_heat": 0.06,
+            "bull": 0.06,
+        },
     },
     "Crisis Resilience": {
         "description": "偏向 ETF 和防御型资产，强调 downside 控制。",
-        "weights": {"expected_return": 0.10, "low_risk": 0.36, "low_downside": 0.34, "bull": 0.00, "momentum": 0.20},
+        "weights": {
+            "expected_return": 0.12,
+            "low_risk": 0.34,
+            "low_downside": 0.30,
+            "momentum": 0.14,
+            "news_hotness": 0.04,
+            "theme_heat": 0.02,
+            "bull": 0.04,
+        },
     },
 }
 
@@ -1344,11 +1388,14 @@ def _minmax(values: np.ndarray, higher: bool = True) -> np.ndarray:
 def choose_strategy(market_state: dict[str, Any]) -> dict[str, Any]:
     probs = market_state["regime_probs"]
     vol = market_state["market_vol_20d"]
-    if probs["bear"] > 0.40 or vol > 0.028:
+    market_return = market_state.get("market_return_20d", 0.0)
+    if probs["bear"] > 0.50 or vol > 0.045:
         name = "Crisis Resilience"
-    elif probs["sideway"] > 0.42:
+    elif probs["bear"] > 0.42 or vol > 0.035:
         name = "Defensive Quality"
-    elif probs["bull"] > 0.42:
+    elif probs["bull"] > 0.36 or market_return > 0.005:
+        name = "Hot Growth"
+    elif probs["bull"] > 0.32:
         name = "Aggressive Growth"
     else:
         name = "Balanced Growth"
@@ -1360,28 +1407,44 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
     risk = np.asarray([row["predicted_volatility"] for row in model_outputs], dtype=float)
     downside = np.asarray([row["predicted_downside"] for row in model_outputs], dtype=float)
     momentum = np.asarray([row["return_20d"] for row in model_outputs], dtype=float)
+    news_hotness_values = np.asarray(
+        [
+            float(row.get("news_hotness_score", row.get("modal_signals", {}).get("news_hotness", 0.5)))
+            for row in model_outputs
+        ],
+        dtype=float,
+    )
+    theme_heat_values = np.asarray(
+        [
+            float(row.get("news_theme_heat", row.get("modal_signals", {}).get("theme_heat", 0.0)))
+            for row in model_outputs
+        ],
+        dtype=float,
+    )
     expected_score = _minmax(expected, True)
     low_risk_score = _minmax(risk, False)
     low_downside_score = _minmax(downside, False)
     momentum_score = _minmax(momentum, True)
+    news_hotness_score = _minmax(news_hotness_values, True)
+    theme_heat_score = _minmax(theme_heat_values, True)
     weights = strategy["weights"]
     ranked = []
     for idx, row in enumerate(model_outputs):
         defensive_sectors = {"Utilities", "Healthcare", "Consumer Staples", "Market ETF", "Sector ETF", "医药", "消费", "公用事业", "宽基ETF", "行业ETF"}
-        sector_bonus = 0.04 if strategy["name"] in {"Defensive Quality", "Crisis Resilience"} and row["sector"] in defensive_sectors else 0.0
+        sector_bonus = 0.025 if strategy["name"] in {"Defensive Quality", "Crisis Resilience"} and row["sector"] in defensive_sectors else 0.0
         type_bonus = 0.03 if strategy["name"] == "Crisis Resilience" and row["type"] == "etf" else 0.0
         news_hotness = float(row.get("news_hotness_score", row.get("modal_signals", {}).get("news_hotness", 0.5)))
         theme_heat = float(row.get("news_theme_heat", row.get("modal_signals", {}).get("theme_heat", 0.0)))
-        news_bonus = 0.05 * (news_hotness - 0.5) + 0.03 * theme_heat
         score = (
-            weights["expected_return"] * expected_score[idx]
-            + weights["low_risk"] * low_risk_score[idx]
-            + weights["low_downside"] * low_downside_score[idx]
-            + weights["bull"] * row["regime_probs"]["bull"]
-            + weights["momentum"] * momentum_score[idx]
+            weights.get("expected_return", 0.0) * expected_score[idx]
+            + weights.get("low_risk", 0.0) * low_risk_score[idx]
+            + weights.get("low_downside", 0.0) * low_downside_score[idx]
+            + weights.get("bull", 0.0) * row["regime_probs"]["bull"]
+            + weights.get("momentum", 0.0) * momentum_score[idx]
+            + weights.get("news_hotness", 0.0) * news_hotness_score[idx]
+            + weights.get("theme_heat", 0.0) * theme_heat_score[idx]
             + sector_bonus
             + type_bonus
-            + news_bonus
         )
         reasons = []
         if expected_score[idx] > 0.65:

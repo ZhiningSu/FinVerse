@@ -84,6 +84,10 @@ const COPY = {
 };
 
 const STRATEGY_COPY: Record<string, Record<Language, { name: string; description: string }>> = {
+  "Hot Growth": {
+    en: { name: "Hot Growth", description: "Prioritizes predicted upside, momentum, news heat, and current market themes such as AI and semiconductors." },
+    zh: { name: "热点成长", description: "优先考虑模型收益、近期动量、新闻热度以及 AI、半导体等当前市场主题。" },
+  },
   "Aggressive Growth": {
     en: { name: "Aggressive Growth", description: "Prioritizes assets with stronger predicted upside and higher bull-regime probability." },
     zh: { name: "进攻成长", description: "偏向高预测收益和高牛市概率的资产。" },

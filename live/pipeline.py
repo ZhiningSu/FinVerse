@@ -96,12 +96,12 @@ NEWS_STOPWORDS = {
 }
 
 MODAL_WEIGHTS = {
-    "sector_macro": 0.23,
-    "discussion": 0.18,
-    "theme_heat": 0.12,
-    "price_momentum": 0.17,
-    "graph_corr": 0.12,
-    "historical_retrieval": 0.10,
+    "sector_macro": 0.05,
+    "discussion": 0.36,
+    "theme_heat": 0.20,
+    "price_momentum": 0.16,
+    "graph_corr": 0.09,
+    "historical_retrieval": 0.06,
     "model_vq": 0.08,
 }
 
@@ -462,11 +462,11 @@ def _news_hotness_score(asset_signal: dict[str, Any], discussion_score: float) -
     theme_heat = float(asset_signal.get("theme_heat", 0.0))
     heat = float(asset_signal.get("heat", 0.0))
     return _clip(
-        0.32 * heat
-        + 0.24 * theme_heat
-        + 0.18 * discussion_score
-        + 0.14 * sentiment_norm
-        + 0.12 * source_diversity,
+        0.44 * heat
+        + 0.28 * discussion_score
+        + 0.18 * theme_heat
+        + 0.05 * sentiment_norm
+        + 0.05 * source_diversity,
         0.0,
         1.0,
     )
@@ -945,11 +945,11 @@ def _discussion_signal(asset: dict[str, Any], discussion_signals: dict[str, Any]
     theme_heat = 0.70 * float(asset_sig.get("theme_heat", 0.0)) + 0.30 * float(sector_sig.get("theme_heat", 0.0))
     source_diversity = float(asset_sig.get("source_diversity", 0.0))
     return _clip(
-        0.10
-        + 0.55 * heat
-        + 0.15 * ((sentiment + 1.0) / 2.0)
+        0.03
+        + 0.74 * heat
+        + 0.04 * ((sentiment + 1.0) / 2.0)
         + 0.15 * theme_heat
-        + 0.05 * source_diversity,
+        + 0.04 * source_diversity,
         0.0,
         1.0,
     )
@@ -1145,8 +1145,8 @@ def _reshape_rollout_path(
     model_curve = np.clip(pred_path[:horizon], -0.30, 0.30)
     target_curve = expected_return * ramp
     curvature = (
-        0.030 * (modal_signals.get("discussion", 0.5) - 0.5) * np.sqrt(ramp)
-        + 0.025 * (modal_signals.get("sector_macro", 0.5) - 0.5) * ramp
+        0.045 * (modal_signals.get("discussion", 0.5) - 0.5) * np.sqrt(ramp)
+        + 0.010 * (modal_signals.get("sector_macro", 0.5) - 0.5) * ramp
         + 0.015 * (modal_signals.get("graph_corr", 0.5) - 0.5) * ramp * ramp
         + 0.020 * (modal_signals.get("historical_retrieval", 0.5) - 0.5) * np.sqrt(ramp)
     )
@@ -1317,61 +1317,61 @@ STRATEGIES = {
     "Hot Growth": {
         "description": "偏向模型收益、近期动量、新闻热度和 AI/半导体等主题热度。",
         "weights": {
-            "expected_return": 0.38,
+            "expected_return": 0.35,
             "momentum": 0.22,
-            "news_hotness": 0.16,
-            "theme_heat": 0.14,
-            "bull": 0.06,
-            "low_risk": 0.02,
-            "low_downside": 0.02,
+            "news_hotness": 0.22,
+            "theme_heat": 0.17,
+            "bull": 0.02,
+            "low_risk": 0.01,
+            "low_downside": 0.01,
         },
     },
     "Aggressive Growth": {
         "description": "偏向高预测收益和高 bull 概率的资产。",
         "weights": {
-            "expected_return": 0.42,
+            "expected_return": 0.39,
             "momentum": 0.22,
-            "news_hotness": 0.12,
-            "theme_heat": 0.10,
-            "bull": 0.08,
-            "low_risk": 0.04,
+            "news_hotness": 0.17,
+            "theme_heat": 0.14,
+            "bull": 0.04,
+            "low_risk": 0.02,
             "low_downside": 0.02,
         },
     },
     "Balanced Growth": {
         "description": "在预测收益、风险和稳定性之间折中。",
         "weights": {
-            "expected_return": 0.34,
+            "expected_return": 0.31,
             "momentum": 0.20,
-            "news_hotness": 0.12,
-            "theme_heat": 0.10,
-            "low_risk": 0.10,
-            "low_downside": 0.08,
+            "news_hotness": 0.17,
+            "theme_heat": 0.13,
+            "low_risk": 0.07,
+            "low_downside": 0.06,
             "bull": 0.06,
         },
     },
     "Defensive Quality": {
         "description": "偏向较低风险、较低 downside 和防御型行业。",
         "weights": {
-            "expected_return": 0.24,
-            "low_risk": 0.22,
-            "low_downside": 0.18,
+            "expected_return": 0.22,
+            "low_risk": 0.20,
+            "low_downside": 0.16,
             "momentum": 0.16,
-            "news_hotness": 0.08,
-            "theme_heat": 0.06,
-            "bull": 0.06,
+            "news_hotness": 0.14,
+            "theme_heat": 0.08,
+            "bull": 0.04,
         },
     },
     "Crisis Resilience": {
         "description": "偏向 ETF 和防御型资产，强调 downside 控制。",
         "weights": {
             "expected_return": 0.12,
-            "low_risk": 0.34,
-            "low_downside": 0.30,
+            "low_risk": 0.32,
+            "low_downside": 0.28,
             "momentum": 0.14,
-            "news_hotness": 0.04,
-            "theme_heat": 0.02,
-            "bull": 0.04,
+            "news_hotness": 0.08,
+            "theme_heat": 0.04,
+            "bull": 0.02,
         },
     },
 }
@@ -1431,8 +1431,8 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
     ranked = []
     for idx, row in enumerate(model_outputs):
         defensive_sectors = {"Utilities", "Healthcare", "Consumer Staples", "Market ETF", "Sector ETF", "医药", "消费", "公用事业", "宽基ETF", "行业ETF"}
-        sector_bonus = 0.025 if strategy["name"] in {"Defensive Quality", "Crisis Resilience"} and row["sector"] in defensive_sectors else 0.0
-        type_bonus = 0.03 if strategy["name"] == "Crisis Resilience" and row["type"] == "etf" else 0.0
+        sector_bonus = 0.010 if strategy["name"] in {"Defensive Quality", "Crisis Resilience"} and row["sector"] in defensive_sectors else 0.0
+        type_bonus = 0.015 if strategy["name"] == "Crisis Resilience" and row["type"] == "etf" else 0.0
         news_hotness = float(row.get("news_hotness_score", row.get("modal_signals", {}).get("news_hotness", 0.5)))
         theme_heat = float(row.get("news_theme_heat", row.get("modal_signals", {}).get("theme_heat", 0.0)))
         score = (
@@ -1593,8 +1593,8 @@ def recommend_industries(
             0.34 * avg_scores[idx]
             + 0.22 * return_score[idx]
             + 0.18 * risk_score[idx]
-            + 0.14 * news_norm
-            + 0.12 * macro_score
+            + 0.20 * news_norm
+            + 0.06 * macro_score
         )
         representatives = sorted(groups[sector], key=lambda asset: asset["score"], reverse=True)[:4]
         recommendations.append(

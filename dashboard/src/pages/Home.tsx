@@ -8,7 +8,7 @@ import { PipelinePanel } from "@/components/PipelinePanel";
 import { RegimeGauge } from "@/components/RegimeGauge";
 import { RolloutChart } from "@/components/RolloutChart";
 import { getAssetDetail, getLatestRecommendation, getLiveQuotes, getPipelineStatus, runPipeline } from "@/lib/api";
-import type { AssetDetail, AssetRecommendation, Language, LiveQuote, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
+import type { AssetDetail, AssetRecommendation, AssetSortMode, Language, LiveQuote, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
 
 type HomeProps = {
   initialMarket?: Market;
@@ -40,6 +40,8 @@ const COPY = {
     return20d: "20d return",
     rankedDetail: "live-adjusted stocks / ETFs ranked",
     selectedStrategy: "Selected strategy",
+    modelSort: "Model ranking",
+    strategySort: "Strategy ranking",
     confidence: "confidence",
     diagnosticOnly: "diagnostic only",
     noExecution: "no trade execution",
@@ -69,6 +71,8 @@ const COPY = {
     return20d: "20日收益",
     rankedDetail: "实时调整后的股票 / ETF 排序",
     selectedStrategy: "选中的策略",
+    modelSort: "模型排序",
+    strategySort: "策略排序",
     confidence: "置信度",
     diagnosticOnly: "仅作诊断",
     noExecution: "不执行交易",
@@ -112,6 +116,7 @@ const REASON_ZH: Record<string, string> = {
   "downside estimate is controlled": "下行风险较可控",
   "sector matches the selected strategy": "行业与当前策略匹配",
   "ETF exposure improves resilience": "ETF 配置增强组合韧性",
+  "news/theme heat is elevated": "新闻/主题热度较高",
   "balanced score across return and risk features": "收益与风险特征综合评分均衡",
 };
 
@@ -150,23 +155,23 @@ function liveMomentumBoost(quote?: LiveQuote) {
   return clip(change * 4, -0.08, 0.12);
 }
 
-function liveAdjustedAssets(
+function rankedAssets(
   recommendation: RecommendationResponse,
   liveQuotes: LiveQuotesResponse | null,
   market: Market,
+  sortMode: AssetSortMode,
 ) {
   const quoteByTicker = new Map((liveQuotes?.quotes ?? []).map((quote) => [quote.ticker.toUpperCase(), quote]));
   const candidates = recommendation.all_assets?.length ? recommendation.all_assets : recommendation.top_assets;
-  return candidates
-    .map((asset) => {
+  const enriched = candidates.map((asset) => {
       const quote = quoteByTicker.get(asset.ticker.toUpperCase());
       const themeBoost = hotThemeBoost(asset, market);
       const momentumBoost = liveMomentumBoost(quote);
       const liveScore = asset.score + themeBoost + momentumBoost;
       return {
         ...asset,
-        model_rank: asset.rank,
-        model_score: asset.score,
+        model_sort_score: asset.expected_return_30d,
+        strategy_sort_score: asset.score,
         live_score: liveScore,
         live_price: quote?.price ?? null,
         live_change_percent: quote?.change_percent ?? null,
@@ -177,8 +182,27 @@ function liveAdjustedAssets(
           ...asset.reasons,
         ],
       };
+    });
+  const modelRank = new Map(
+    [...enriched]
+      .sort((left, right) => right.expected_return_30d - left.expected_return_30d)
+      .map((item, index) => [item.ticker.toUpperCase(), index + 1]),
+  );
+  const strategyRank = new Map(
+    [...enriched]
+      .sort((left, right) => right.score - left.score)
+      .map((item, index) => [item.ticker.toUpperCase(), index + 1]),
+  );
+  return enriched
+    .map((asset) => ({
+      ...asset,
+      model_rank: modelRank.get(asset.ticker.toUpperCase()) ?? asset.rank,
+      strategy_rank: strategyRank.get(asset.ticker.toUpperCase()) ?? asset.rank,
+    }))
+    .sort((left, right) => {
+      if (sortMode === "model") return right.expected_return_30d - left.expected_return_30d;
+      return right.score - left.score;
     })
-    .sort((left, right) => (right.live_score ?? right.score) - (left.live_score ?? left.score))
     .slice(0, LIVE_RANKING_SIZE)
     .map((asset, index) => ({ ...asset, rank: index + 1, live_rank: index + 1 }));
 }
@@ -192,6 +216,7 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   const [liveQuotes, setLiveQuotes] = useState<LiveQuotesResponse | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<AssetSortMode>("strategy");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const copy = COPY[language];
@@ -276,7 +301,7 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   const localizedStrategy = displayStrategy(strategy, language);
   const localizedRegime = displayRegime(market.regime, language);
   const explanations = asset?.explanation?.length ? asset.explanation.map((item) => displayReason(item, language)) : [copy.selectAsset];
-  const displayedAssets = liveAdjustedAssets(recommendation, liveQuotes, marketId);
+  const displayedAssets = rankedAssets(recommendation, liveQuotes, marketId, sortMode);
   const displayedTickerSet = new Set(displayedAssets.map((item) => item.ticker.toUpperCase()));
   const displayedLiveQuotes = liveQuotes
     ? {
@@ -402,6 +427,8 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
             onSelect={selectAsset}
             language={language}
             selectedTicker={asset?.ticker}
+            sortMode={sortMode}
+            onSortModeChange={setSortMode}
           />
           <RolloutChart asset={asset} language={language} />
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">

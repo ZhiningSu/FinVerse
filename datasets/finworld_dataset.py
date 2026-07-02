@@ -1,6 +1,7 @@
 """FinWorldDataset with binary prices + lightweight JSONL metadata."""
 from __future__ import annotations
 
+import csv
 import json
 import logging
 from pathlib import Path
@@ -24,10 +25,12 @@ _PRICE_STATS = None
 _NEWS_FEATURES = None
 _PRICE_ROOT = None
 _NEWS_ROOT = None
+_PRICE_SYMBOLS = None
+_SECTOR_BY_SYMBOL = None
 
 
 def _load_price_buffer(root: Path):
-    global _PRICE_BUFFER, _PRICE_STATS, _PRICE_ROOT
+    global _PRICE_BUFFER, _PRICE_STATS, _PRICE_ROOT, _PRICE_SYMBOLS
     root = Path(root).resolve()
     if _PRICE_BUFFER is None or _PRICE_ROOT != root:
         bin_path = root / "prices.bin"
@@ -40,9 +43,11 @@ def _load_price_buffer(root: Path):
                 stats_payload = json.load(f)
                 _PRICE_STATS = stats_payload["price_stats"]
                 n_symbols = int(stats_payload.get("n_symbols", 66))
+                _PRICE_SYMBOLS = stats_payload.get("symbols") or [str(i) for i in range(n_symbols)]
         else:
             _PRICE_STATS = {"mean": 0.0, "std": 1.0}
             n_symbols = 66
+            _PRICE_SYMBOLS = [str(i) for i in range(n_symbols)]
 
         if n_symbols <= 0 or buf.shape[0] % n_symbols != 0:
             raise ValueError(
@@ -55,6 +60,59 @@ def _load_price_buffer(root: Path):
         LOGGER.info("Loaded price buffer: shape=%s, mean=%.2f, std=%.2f",
                     str(buf.shape), _PRICE_STATS["mean"], _PRICE_STATS["std"])
     return _PRICE_BUFFER
+
+
+def _load_sector_by_symbol() -> dict[str, str]:
+    global _SECTOR_BY_SYMBOL
+    if _SECTOR_BY_SYMBOL is not None:
+        return _SECTOR_BY_SYMBOL
+    project_root = Path(__file__).resolve().parents[1]
+    sector_by_symbol: dict[str, str] = {}
+    for path in (
+        project_root / "data" / "tickers" / "hmsc_us_90.csv",
+        project_root / "data" / "tickers" / "hmsc_cn_50.csv",
+    ):
+        if not path.exists():
+            continue
+        with path.open(encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                ticker = (row.get("ticker") or "").strip()
+                if ticker:
+                    sector_by_symbol[ticker] = (row.get("sector") or "Unknown").strip() or "Unknown"
+    _SECTOR_BY_SYMBOL = sector_by_symbol
+    return _SECTOR_BY_SYMBOL
+
+
+def _make_action_from_history(lookback_slice: np.ndarray) -> np.ndarray:
+    if lookback_slice.shape[0] < 2:
+        return np.zeros(8, dtype=np.float32)
+    safe = np.where(lookback_slice <= 0, np.nan, lookback_slice)
+    returns = safe[1:] / (safe[:-1] + 1e-8) - 1.0
+    returns = np.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0)
+    target = returns[:, 0] if returns.ndim == 2 else returns
+    graph_mean = returns.mean(axis=1) if returns.ndim == 2 else returns
+    mom_1 = float(target[-1]) if target.size else 0.0
+    mom_5 = float(target[-5:].mean()) if target.size else 0.0
+    mom_20 = float(target[-20:].mean()) if target.size else mom_5
+    vol_20 = float(target[-20:].std()) if target.size > 1 else 0.0
+    graph_mom = float(graph_mean[-20:].mean()) if graph_mean.size else 0.0
+    graph_vol = float(graph_mean[-20:].std()) if graph_mean.size > 1 else 0.0
+    rel_strength = mom_20 - graph_mom
+    risk_budget = 1.0 / (1.0 + 50.0 * vol_20)
+    action = np.asarray(
+        [
+            mom_1 * 8.0,
+            mom_5 * 8.0,
+            mom_20 * 8.0,
+            graph_mom * 8.0,
+            rel_strength * 8.0,
+            risk_budget,
+            vol_20 * 20.0,
+            graph_vol * 20.0,
+        ],
+        dtype=np.float32,
+    )
+    return np.clip(action, -1.0, 1.0)
 
 
 def _load_news_features(root: Path):
@@ -217,6 +275,15 @@ class FinWorldDataset(Dataset):
 
         self.price_buffer = _load_price_buffer(self.root)
         self.news_by_date = _load_news_features(self.root)
+        self.symbols = list(_PRICE_SYMBOLS or [str(i) for i in range(self.price_buffer.shape[1])])
+        sector_by_symbol = _load_sector_by_symbol()
+        sectors = sorted({sector_by_symbol.get(symbol, "Unknown") for symbol in self.symbols} | {"Unknown"})
+        self.sector_vocab = sectors
+        self.sector_to_id = {sector: idx for idx, sector in enumerate(sectors)}
+        self.sector_ids = np.asarray(
+            [self.sector_to_id.get(sector_by_symbol.get(symbol, "Unknown"), 0) for symbol in self.symbols],
+            dtype=np.int64,
+        )
 
         if not self.episode_file.exists():
             LOGGER.warning("Episode file not found: %s. Generating synthetic data.", self.episode_file)
@@ -254,13 +321,30 @@ class FinWorldDataset(Dataset):
     def __len__(self):
         return len(self._meta)
 
-    def _build_edges(self, meta):
+    def _build_edges(self, meta, g_indices: list[int] | None = None, date_idx: int | None = None):
         n = GRAPH_WIDTH
         edges = []
+        weights = []
+        target_returns = None
+        if g_indices and date_idx is not None and date_idx >= LOOKBACK:
+            window = self.price_buffer[date_idx - LOOKBACK:date_idx, g_indices]
+            safe = np.where(window <= 0, np.nan, window)
+            returns = safe[1:] / (safe[:-1] + 1e-8) - 1.0
+            returns = np.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0)
+            target_returns = returns[:, 0] if returns.ndim == 2 and returns.shape[1] else None
         for j in range(1, n):
             edges.append([0, j])
+            weight = 1.0
+            if target_returns is not None and g_indices and j < len(g_indices):
+                peer_returns = returns[:, j]
+                if target_returns.std() > 1e-8 and peer_returns.std() > 1e-8:
+                    weight = float(np.corrcoef(target_returns, peer_returns)[0, 1])
+                    weight = float(np.clip(max(weight, 0.0), 0.05, 1.0))
+                else:
+                    weight = 0.05
+            weights.append(weight)
         edge_index = torch.tensor(edges, dtype=torch.long).t()
-        edge_weight = torch.ones(n - 1, dtype=torch.float32)
+        edge_weight = torch.tensor(weights, dtype=torch.float32)
         return edge_index, edge_weight
 
     def __getitem__(self, idx: int) -> dict:
@@ -280,7 +364,8 @@ class FinWorldDataset(Dataset):
             regime_target = _make_regime_label(price_target)
             price_seq = _pad_feature_width(price_seq)
             price_target = _pad_feature_width(price_target)
-            action = np.zeros(8, dtype=np.float32)
+            action = np.clip(np.random.randn(8).astype(np.float32) * 0.1, -1.0, 1.0)
+            sector_id = 0
         else:
             si = meta["ticker_idx"]
             date_idx = meta["date_idx"]
@@ -312,9 +397,10 @@ class FinWorldDataset(Dataset):
             news_feat = _make_news_seq(self.news_by_date, date_str)
             macro_feat = _make_macro_seq(self.news_by_date, date_str)
 
-            action = np.zeros(8, dtype=np.float32)
+            action = _make_action_from_history(lookback_slice)
+            sector_id = int(self.sector_ids[si]) if 0 <= si < len(self.sector_ids) else 0
 
-            edge_index, edge_weight = self._build_edges(meta)
+            edge_index, edge_weight = self._build_edges(meta, g_indices=g_indices, date_idx=date_idx)
 
         return {
             "price_seq": torch.from_numpy(price_seq),
@@ -326,6 +412,7 @@ class FinWorldDataset(Dataset):
             "action": torch.from_numpy(action),
             "date_idx": torch.tensor(date_idx, dtype=torch.long),
             "ticker_idx": torch.tensor(si, dtype=torch.long),
+            "sector_id": torch.tensor(sector_id, dtype=torch.long),
             "regime_target": torch.tensor(regime_target, dtype=torch.long),
         }
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 PY=${PY:-/home/wjt/anaconda3/envs/sft/bin/python}
 DATA_ROOT=${DATA_ROOT:-data/processed/real_90}
-OUTPUT_DIR=${OUTPUT_DIR:-outputs/live_model_smoke}
+OUTPUT_DIR=${OUTPUT_DIR:-outputs/live_model_full}
 LIVE_OUTPUT_DIR=${LIVE_OUTPUT_DIR:-outputs/live}
 LIVE_DATA_DIR=${LIVE_DATA_DIR:-data/live}
 MARKET=${MARKET:-us}
@@ -11,10 +11,10 @@ DEVICE=${DEVICE:-cuda}
 INFER_DEVICE=${INFER_DEVICE:-cpu}
 HIDDEN_DIM=${HIDDEN_DIM:-128}
 LATENT_DIM=${LATENT_DIM:-128}
-EPOCHS=${EPOCHS:-1}
-TRAIN_EPISODES=${TRAIN_EPISODES:-256}
-VAL_EPISODES=${VAL_EPISODES:-64}
-BATCH_SIZE=${BATCH_SIZE:-32}
+EPOCHS=${EPOCHS:-12}
+TRAIN_EPISODES=${TRAIN_EPISODES:-4096}
+VAL_EPISODES=${VAL_EPISODES:-512}
+BATCH_SIZE=${BATCH_SIZE:-64}
 TOP_K=${TOP_K:-20}
 SEED=${SEED:-42}
 
@@ -22,7 +22,7 @@ export PYTHONDONTWRITEBYTECODE=1
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
 export MKL_NUM_THREADS=${MKL_NUM_THREADS:-4}
 
-echo "===== Train small FinVerse checkpoint ====="
+echo "===== Train stronger FinVerse checkpoint ====="
 "${PY}" -B train.py \
   --data-root "${DATA_ROOT}" \
   --output-dir "${OUTPUT_DIR}" \
@@ -54,7 +54,6 @@ echo "===== Generate live dashboard snapshot with model checkpoint ====="
 "${PY}" -B scripts/run_live_pipeline.py \
   --market "${MARKET}" \
   --top-k "${TOP_K}" \
-  --force-fetch \
   --output-dir "${LIVE_OUTPUT_DIR}" \
   --data-live-dir "${LIVE_DATA_DIR}" \
   --mode finverse_checkpoint \
@@ -62,7 +61,8 @@ echo "===== Generate live dashboard snapshot with model checkpoint ====="
   --model-name finverse \
   --hidden-dim "${HIDDEN_DIM}" \
   --latent-dim "${LATENT_DIM}" \
-  --device "${INFER_DEVICE}"
+  --device "${INFER_DEVICE}" \
+  --fetch-online
 
 mkdir -p "dashboard/public/data/${MARKET}"
 cp "${LIVE_OUTPUT_DIR}/${MARKET}/latest.json" "dashboard/public/data/${MARKET}/latest.json"

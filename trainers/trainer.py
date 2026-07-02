@@ -170,6 +170,28 @@ class Trainer:
             "cross_perplexity": [],
         }
 
+    def _model_forward(self, batch: dict) -> dict:
+        price_seq = batch["price_seq"]
+        news_feat = batch["news_feat"]
+        macro_feat = batch["macro_feat"]
+        edge_index = batch["edge_index"]
+        edge_weight = batch["edge_weight"]
+        price_target = batch["price_target"]
+        action = batch["action"]
+        if getattr(self.model, "supports_asset_conditioning", False):
+            return self.model(
+                price_seq,
+                news_feat,
+                macro_feat,
+                edge_index,
+                edge_weight,
+                action,
+                price_target,
+                ticker_idx=batch.get("ticker_idx"),
+                sector_id=batch.get("sector_id"),
+            )
+        return self.model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target)
+
     def train_epoch(self, epoch: int):
         self.model.train()
         epoch_losses = []
@@ -187,16 +209,10 @@ class Trainer:
         for batch in pbar:
             batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
-            price_seq = batch["price_seq"]
-            news_feat = batch["news_feat"]
-            macro_feat = batch["macro_feat"]
-            edge_index = batch["edge_index"]
-            edge_weight = batch["edge_weight"]
             price_target = batch["price_target"]
-            action = batch["action"]
             regime_target = batch.get("regime_target")
 
-            output = self.model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target)
+            output = self._model_forward(batch)
             total_loss, metrics = self.criterion(output, price_target, regime_target)
 
             self.optimizer.zero_grad()
@@ -251,15 +267,9 @@ class Trainer:
         pbar = tqdm(self.val_loader, desc=f"Epoch {epoch} Val")
         for batch in pbar:
             batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-            price_seq = batch["price_seq"]
-            news_feat = batch["news_feat"]
-            macro_feat = batch["macro_feat"]
-            edge_index = batch["edge_index"]
-            edge_weight = batch["edge_weight"]
             price_target = batch["price_target"]
-            action = batch["action"]
             regime_target = batch.get("regime_target")
-            output = self.model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target)
+            output = self._model_forward(batch)
             total_loss, metrics = self.criterion(output, price_target, regime_target)
             val_losses.append(total_loss.item())
             for key, value in metrics.items():
@@ -295,8 +305,11 @@ class Trainer:
 
     def load_checkpoint(self, path: str | Path):
         ckpt = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(ckpt["model_state"])
-        self.optimizer.load_state_dict(ckpt["optimizer_state"])
+        self.model.load_state_dict(ckpt["model_state"], strict=False)
+        try:
+            self.optimizer.load_state_dict(ckpt["optimizer_state"])
+        except ValueError:
+            LOGGER.warning("Optimizer state is incompatible with the current model; continuing with a fresh optimizer.")
         self.history = ckpt.get("history", {"train_loss": [], "val_loss": [], "kl": [], "recon": []})
         self.history.setdefault("vq", [])
         self.history.setdefault("return", [])

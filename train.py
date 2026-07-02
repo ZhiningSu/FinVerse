@@ -133,8 +133,12 @@ def build_model(model_name: str, args, device):
         "action_dim": 8,
         "num_tickers": int(getattr(args, "num_tickers", 90)),
     }
+    world_extra = {
+        **extra,
+        "num_sectors": int(getattr(args, "num_sectors", 32)),
+    }
     if model_name in {"full", "finverse"}:
-        model = WorldModel(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **extra).to(device)
+        model = WorldModel(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, **world_extra).to(device)
         criterion = WorldModelLoss(
             kl_weight=args.kl_weight,
             recon_weight=args.recon_weight,
@@ -148,7 +152,7 @@ def build_model(model_name: str, args, device):
             latent_dim=args.latent_dim,
             hidden_dim=args.hidden_dim,
             use_dual_vq=False,
-            **extra,
+            **world_extra,
         ).to(device)
         criterion = WorldModelLoss(
             kl_weight=args.kl_weight,
@@ -244,6 +248,8 @@ def main():
     LOGGER.info("Train episodes: %d | Val episodes: %d", len(train_dataset), len(val_dataset))
     args.num_tickers = int(train_dataset.price_buffer.shape[1])
     LOGGER.info("Detected ticker universe size: %d", args.num_tickers)
+    args.num_sectors = max(len(getattr(train_dataset, "sector_vocab", [])), 1)
+    LOGGER.info("Detected sector vocabulary size: %d", args.num_sectors)
     generator = torch.Generator()
     generator.manual_seed(args.seed)
     train_loader = DataLoader(

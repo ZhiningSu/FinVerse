@@ -1,6 +1,7 @@
 export type StageStatus = "idle" | "running" | "success" | "failed";
 export type Market = "us" | "cn";
 export type Language = "en" | "zh";
+export type AssetSortMode = "model" | "strategy";
 
 export type PipelineStage = {
   name: string;
@@ -36,6 +37,7 @@ export type MarketState = {
 export type AssetRecommendation = {
   rank: number;
   model_rank?: number;
+  strategy_rank?: number;
   live_rank?: number;
   ticker: string;
   name: string;
@@ -45,9 +47,18 @@ export type AssetRecommendation = {
   score: number;
   model_score?: number;
   live_score?: number;
+  model_sort_score?: number;
+  strategy_sort_score?: number;
   live_price?: number | null;
   live_change_percent?: number | null;
   hot_theme?: boolean;
+  news_hotness_score?: number;
+  news_theme_heat?: number;
+  news_source_diversity?: number;
+  news_keywords?: Array<{ keyword: string; count: number }>;
+  news_themes?: Array<{ theme: string; count: number; score: number }>;
+  news_sources?: string[];
+  modal_signals?: Record<string, number>;
   expected_return_30d: number;
   predicted_volatility: number;
   predicted_downside: number;

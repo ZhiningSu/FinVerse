@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--market", choices=["us", "cn"], default="us")
     parser.add_argument("--trade-date", default=None, help="Optional YYYY-MM-DD date. Defaults to latest raw date.")
     parser.add_argument("--force-fetch", action="store_true")
+    parser.add_argument("--fetch-online", action="store_true", help="Fetch online news/discussion signals in addition to local caches.")
     parser.add_argument("--top-k", type=int, default=20)
     parser.add_argument("--output-dir", default="outputs/live")
     parser.add_argument("--data-live-dir", default="data/live")
@@ -40,6 +41,7 @@ def main() -> None:
             hidden_dim=args.hidden_dim,
             latent_dim=args.latent_dim,
             device=args.device,
+            fetch_online=args.fetch_online,
         ),
         trade_date=args.trade_date,
         force_fetch=args.force_fetch,

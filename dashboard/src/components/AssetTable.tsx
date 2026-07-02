@@ -1,10 +1,12 @@
-import type { AssetRecommendation, Language } from "@/types";
+import type { AssetRecommendation, AssetSortMode, Language } from "@/types";
 
 type AssetTableProps = {
   assets: AssetRecommendation[];
   onSelect: (ticker: string) => void;
   language: Language;
   selectedTicker?: string;
+  sortMode: AssetSortMode;
+  onSortModeChange: (mode: AssetSortMode) => void;
 };
 
 const fmtPct = (value: number) => `${(value * 100).toFixed(2)}%`;
@@ -16,6 +18,11 @@ const COPY = {
     helper: "Click ticker to inspect rollout details",
     rank: "Rank",
     modelRank: "Model",
+    strategyRank: "Strategy",
+    modelSort: "Model ranking",
+    strategySort: "Strategy ranking",
+    modelScore: "Model Ret",
+    strategyScore: "Strategy Score",
     ticker: "Ticker",
     name: "Name",
     sector: "Sector",
@@ -36,6 +43,11 @@ const COPY = {
     helper: "点击代码查看 rollout 详情",
     rank: "排名",
     modelRank: "模型排名",
+    strategyRank: "策略排名",
+    modelSort: "模型排序",
+    strategySort: "策略排序",
+    modelScore: "模型收益",
+    strategyScore: "策略评分",
     ticker: "代码",
     name: "名称",
     sector: "行业",
@@ -60,6 +72,7 @@ const REASON_ZH: Record<string, string> = {
   "downside estimate is controlled": "下行风险较可控",
   "sector matches the selected strategy": "行业与当前策略匹配",
   "ETF exposure improves resilience": "ETF 配置增强组合韧性",
+  "news/theme heat is elevated": "新闻/主题热度较高",
   "balanced score across return and risk features": "收益与风险特征综合评分均衡",
   "balanced score": "收益与风险综合评分均衡",
 };
@@ -120,27 +133,53 @@ function liveTone(value: number | null | undefined) {
   return "text-slate-300";
 }
 
-export function AssetTable({ assets, onSelect, language, selectedTicker }: AssetTableProps) {
+export function AssetTable({
+  assets,
+  onSelect,
+  language,
+  selectedTicker,
+  sortMode,
+  onSortModeChange,
+}: AssetTableProps) {
   const copy = COPY[language];
+  const sortModes: Array<{ mode: AssetSortMode; label: string }> = [
+    { mode: "model", label: copy.modelSort },
+    { mode: "strategy", label: copy.strategySort },
+  ];
+  const peerRankLabel = sortMode === "model" ? copy.strategyRank : copy.modelRank;
+  const scoreLabel = sortMode === "model" ? copy.modelScore : copy.strategyScore;
   return (
     <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/25">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{copy.eyebrow}</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">{copy.title}</h2>
         </div>
-        <p className="text-sm text-slate-400">{copy.helper}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-full border border-white/10 bg-slate-900/80 p-1 text-xs">
+            {sortModes.map((item) => (
+              <button
+                key={item.mode}
+                onClick={() => onSortModeChange(item.mode)}
+                className={`rounded-full px-4 py-2 transition ${sortMode === item.mode ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-slate-400">{copy.helper}</p>
+        </div>
       </div>
       <div className="max-h-[820px] overflow-auto rounded-2xl border border-white/10">
         <table className="min-w-[1120px] w-full border-collapse text-left text-sm">
           <thead className="bg-white/[0.06] text-xs uppercase tracking-[0.18em] text-slate-400">
             <tr>
               <th className="px-4 py-3">{copy.rank}</th>
-              <th className="px-4 py-3">{copy.modelRank}</th>
+              <th className="px-4 py-3">{peerRankLabel}</th>
               <th className="px-4 py-3">{copy.ticker}</th>
               <th className="px-4 py-3">{copy.name}</th>
               <th className="px-4 py-3">{copy.sector}</th>
-              <th className="px-4 py-3">{copy.score}</th>
+              <th className="px-4 py-3">{scoreLabel}</th>
               <th className="px-4 py-3">{copy.live}</th>
               <th className="px-4 py-3">{copy.ret30}</th>
               <th className="px-4 py-3">{copy.risk}</th>
@@ -150,13 +189,17 @@ export function AssetTable({ assets, onSelect, language, selectedTicker }: Asset
           <tbody className="divide-y divide-white/10">
             {assets.map((asset) => {
               const selected = selectedTicker?.toUpperCase() === asset.ticker.toUpperCase();
+              const peerRank = sortMode === "model" ? asset.strategy_rank : asset.model_rank;
+              const scoreValue = sortMode === "model"
+                ? fmtPct(asset.model_sort_score ?? asset.expected_return_30d)
+                : (asset.strategy_sort_score ?? asset.score).toFixed(3);
               return (
                 <tr
                   key={asset.ticker}
                   className={`${selected ? "bg-cyan-300/15 ring-1 ring-inset ring-cyan-300/30" : "bg-slate-950/20"} transition hover:bg-cyan-300/10`}
                 >
                   <td className="px-4 py-4 text-slate-400">#{asset.rank}</td>
-                  <td className="px-4 py-4 text-slate-500">#{asset.model_rank ?? asset.rank}</td>
+                  <td className="px-4 py-4 text-slate-500">#{peerRank ?? asset.rank}</td>
                   <td className="px-4 py-4">
                     <button
                       className="font-semibold text-cyan-200 underline-offset-4 hover:text-cyan-100 hover:underline"
@@ -171,7 +214,7 @@ export function AssetTable({ assets, onSelect, language, selectedTicker }: Asset
                   </td>
                   <td className="px-4 py-4 text-slate-300">{sectorLabel(asset.sector, language)}</td>
                   <td className="px-4 py-4 text-white">
-                    {(asset.live_score ?? asset.score).toFixed(3)}
+                    {scoreValue}
                     {asset.hot_theme ? (
                       <p className="mt-1 text-xs font-normal text-amber-200">{copy.hotTheme}</p>
                     ) : null}

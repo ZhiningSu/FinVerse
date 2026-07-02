@@ -63,27 +63,79 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
-def load_model(checkpoint_path: str, model_name: str, device: torch.device, hidden_dim=256, latent_dim=128, num_tickers=90):
+def _infer_num_sectors(state: dict, fallback: int = 32) -> int:
+    weight = state.get("sector_embedding.weight")
+    if isinstance(weight, torch.Tensor) and weight.dim() == 2:
+        return int(weight.shape[0])
+    return fallback
+
+
+def _infer_hidden_dim(state: dict, fallback: int) -> int:
+    weight = state.get("encoder.price_input.weight")
+    if isinstance(weight, torch.Tensor) and weight.dim() == 2:
+        return int(weight.shape[0])
+    weight = state.get("price_encoder.weight_ih_l0")
+    if isinstance(weight, torch.Tensor) and weight.dim() == 2:
+        return int(weight.shape[0] // 3)
+    return fallback
+
+
+def _infer_latent_dim(state: dict, fallback: int) -> int:
+    weight = state.get("decoder.state_norm.weight")
+    if isinstance(weight, torch.Tensor) and weight.dim() == 1:
+        return int(weight.shape[0])
+    weight = state.get("transition.rssm_transition.weight_hh")
+    if isinstance(weight, torch.Tensor) and weight.dim() == 2:
+        return int(weight.shape[1])
+    return fallback
+
+
+def _shape_compatible_state(model: torch.nn.Module, state: dict) -> dict:
+    model_state = model.state_dict()
+    return {
+        key: value
+        for key, value in state.items()
+        if key in model_state and tuple(model_state[key].shape) == tuple(value.shape)
+    }
+
+
+def load_model(checkpoint_path: str, model_name: str, device: torch.device, hidden_dim=256, latent_dim=128, num_tickers=90, num_sectors=32):
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    state = ckpt.get("model_state", ckpt)
     model_cls = MODEL_REGISTRY[model_name]
+    if model_name in {"full", "finverse", "vanilla_rssm"}:
+        hidden_dim = _infer_hidden_dim(state, hidden_dim)
+        latent_dim = _infer_latent_dim(state, latent_dim)
 
     extra = {"price_dim": 6, "news_dim": 384, "macro_dim": 8, "graph_dim": 5, "action_dim": 8, "num_tickers": num_tickers}
+    world_extra = {**extra, "num_sectors": _infer_num_sectors(state, num_sectors)}
 
     if model_name in {"price_only", "lstm", "gru", "dlinear", "transformer", "patchtst", "itransformer", "kronos_mini", "chronos_mini", "timesfm"}:
         model = model_cls(price_dim=6, hidden_dim=hidden_dim, output_dim=6, num_steps=30).to(device)
     elif model_name == "vanilla_rssm":
-        model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, use_dual_vq=False, **extra).to(device)
+        model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, use_dual_vq=False, **world_extra).to(device)
     elif model_name == "dreamer_rssm":
         model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, **extra).to(device)
     else:
-        model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, **extra).to(device)
+        model = model_cls(latent_dim=latent_dim, hidden_dim=hidden_dim, **world_extra).to(device)
 
-    model.load_state_dict(ckpt["model_state"])
+    model.load_state_dict(_shape_compatible_state(model, state), strict=False)
     model.eval()
     return model
 
 
-def predict_at_horizon(model, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, horizon: int):
+def predict_at_horizon(
+    model,
+    price_seq,
+    news_feat,
+    macro_feat,
+    edge_index,
+    edge_weight,
+    action,
+    horizon: int,
+    ticker_idx=None,
+    sector_id=None,
+):
     price_seq = price_seq.to(torch.float32)
     news_feat = news_feat.to(torch.float32)
     macro_feat = macro_feat.to(torch.float32)
@@ -108,7 +160,10 @@ def predict_at_horizon(model, price_seq, news_feat, macro_feat, edge_index, edge
         return pred[:, horizon - 1, :] if horizon <= pred.size(1) else pred[:, -1, :]
 
     else:
-        out = model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action)
+        kwargs = {}
+        if getattr(model, "supports_asset_conditioning", False):
+            kwargs = {"ticker_idx": ticker_idx, "sector_id": sector_id}
+        out = model(price_seq, news_feat, macro_feat, edge_index, edge_weight, action, **kwargs)
         pred = out["price_pred"]
         if pred.dim() == 2:
             return pred[:, horizon - 1]
@@ -297,7 +352,18 @@ def evaluate_model(
         batch_target_path = []
 
         for h in [1, 5, 10, 20, 30]:
-            pred = predict_at_horizon(model, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, h)
+            pred = predict_at_horizon(
+                model,
+                price_seq,
+                news_feat,
+                macro_feat,
+                edge_index,
+                edge_weight,
+                action,
+                h,
+                ticker_idx=batch.get("ticker_idx"),
+                sector_id=batch.get("sector_id"),
+            )
             target_h = price_target[:, h - 1, :] if price_target.dim() == 3 else price_target
             if pred.dim() == 1:
                 pred = pred.unsqueeze(-1)
@@ -434,6 +500,7 @@ def main():
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collate_fn)
     LOGGER.info("Test set: %d episodes", len(dataset))
     num_tickers = int(getattr(dataset, "price_buffer").shape[1])
+    num_sectors = max(len(getattr(dataset, "sector_vocab", [])), 1)
 
     results = {}
     device = torch.device(args.device)
@@ -442,7 +509,15 @@ def main():
         for spec in args.checkpoints:
             name, path = spec.split(":", 1)
             LOGGER.info("Loading checkpoint: %s from %s", name, path)
-            model = load_model(path, _name_to_key(name), device, args.hidden_dim, args.latent_dim, num_tickers=num_tickers)
+            model = load_model(
+                path,
+                _name_to_key(name),
+                device,
+                args.hidden_dim,
+                args.latent_dim,
+                num_tickers=num_tickers,
+                num_sectors=num_sectors,
+            )
             results[name] = evaluate_model(
                 model,
                 loader,
@@ -461,7 +536,15 @@ def main():
                 ckpt_path = ckpt_dir / ckpt_file
                 if ckpt_path.exists():
                     LOGGER.info("Loading %s from %s", model_name, ckpt_path)
-                    model = load_model(str(ckpt_path), model_name, device, args.hidden_dim, args.latent_dim, num_tickers=num_tickers)
+                    model = load_model(
+                        str(ckpt_path),
+                        model_name,
+                        device,
+                        args.hidden_dim,
+                        args.latent_dim,
+                        num_tickers=num_tickers,
+                        num_sectors=num_sectors,
+                    )
                     display_name = {
                         "full": "FinWorldModel",
                         "price_only": "PriceOnlyGRU",

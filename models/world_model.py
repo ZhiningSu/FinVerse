@@ -322,6 +322,12 @@ class ObservationDecoder(nn.Module):
     def __init__(self, latent_dim: int = 128, hidden_dim: int = 256, num_tickers: int = 80):
         super().__init__()
         self.latent_dim = latent_dim
+        self.asset_condition = nn.Sequential(
+            nn.Linear(latent_dim, latent_dim),
+            nn.LayerNorm(latent_dim),
+            nn.GELU(),
+        )
+        self.asset_gate = nn.Sequential(nn.Linear(latent_dim * 2, latent_dim), nn.Sigmoid())
         self.rollout_cell = nn.GRUCell(latent_dim + 1, latent_dim)
         self.state_norm = nn.LayerNorm(latent_dim)
         self.price_head = nn.Sequential(
@@ -342,16 +348,26 @@ class ObservationDecoder(nn.Module):
             nn.Linear(hidden_dim // 4, 4),
         )
 
-    def forward(self, latent, horizon: int = 30):
+    def forward(self, latent, horizon: int = 30, asset_context: torch.Tensor | None = None):
         if latent.dim() == 2:
             latent = latent.unsqueeze(1).expand(-1, horizon, -1)
         steps = min(horizon, latent.size(1))
+        cond = None
+        if asset_context is not None:
+            asset_context = _align_feature_dim(asset_context.unsqueeze(1), self.latent_dim).squeeze(1)
+            cond = self.asset_condition(asset_context)
         state = latent[:, 0]
+        if cond is not None:
+            gate = self.asset_gate(torch.cat([state, cond], dim=-1))
+            state = self.state_norm(state + gate * cond)
         prev_price = latent.new_zeros(latent.size(0), 1)
         prices = []
         states = []
         for t in range(steps):
             context = latent[:, t]
+            if cond is not None:
+                gate = self.asset_gate(torch.cat([context, cond], dim=-1))
+                context = context + gate * cond
             state = self.rollout_cell(torch.cat([context, prev_price], dim=-1), state)
             state = self.state_norm(state + context)
             price_t = self.price_head(state)
@@ -385,11 +401,14 @@ class WorldModel(nn.Module):
         latent_dim: int = 128,
         hidden_dim: int = 256,
         num_tickers: int = 80,
+        num_sectors: int = 32,
         use_dual_vq: bool = True,
     ):
         super().__init__()
+        self.supports_asset_conditioning = True
         self.latent_dim = latent_dim
         self.num_tickers = num_tickers
+        self.num_sectors = max(int(num_sectors), 1)
         self.action_dim = action_dim
 
         self.encoder = MultiModalEncoder(
@@ -405,6 +424,16 @@ class WorldModel(nn.Module):
         self.decoder = ObservationDecoder(latent_dim, hidden_dim, num_tickers)
 
         self.news_projector = nn.Linear(768, news_dim)
+        self.ticker_embedding = nn.Embedding(max(int(num_tickers), 1), latent_dim)
+        self.sector_embedding = nn.Embedding(self.num_sectors, latent_dim)
+        self.asset_context = nn.Sequential(
+            nn.Linear(latent_dim * 2, latent_dim),
+            nn.LayerNorm(latent_dim),
+            nn.GELU(),
+            nn.Linear(latent_dim, latent_dim),
+        )
+        self.asset_latent_gate = nn.Sequential(nn.Linear(latent_dim * 2, latent_dim), nn.Sigmoid())
+        self.asset_action_proj = nn.Linear(latent_dim, action_dim)
         self.action_net = nn.Sequential(
             nn.Linear(latent_dim, hidden_dim // 2),
             nn.GELU(),
@@ -423,16 +452,68 @@ class WorldModel(nn.Module):
             return q_mu, q_logvar, aux
         return q_mu, q_logvar
 
-    def _compose_action(self, latent: torch.Tensor, action: torch.Tensor | None) -> tuple[torch.Tensor, torch.Tensor]:
+    @staticmethod
+    def _prepare_id(ids: torch.Tensor | None, batch_size: int, modulo: int, device: torch.device) -> torch.Tensor | None:
+        if ids is None:
+            return None
+        ids = ids.to(device=device, dtype=torch.long).reshape(-1)
+        if ids.numel() == 1 and batch_size > 1:
+            ids = ids.expand(batch_size)
+        if ids.numel() != batch_size:
+            if ids.numel() < batch_size:
+                pad = ids.new_zeros(batch_size - ids.numel())
+                ids = torch.cat([ids, pad], dim=0)
+            else:
+                ids = ids[:batch_size]
+        return ids.clamp_min(0) % max(modulo, 1)
+
+    def _make_asset_context(
+        self,
+        ticker_idx: torch.Tensor | None,
+        sector_id: torch.Tensor | None,
+        batch_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor | None:
+        if ticker_idx is None and sector_id is None:
+            return None
+        ticker_idx = self._prepare_id(ticker_idx, batch_size, self.num_tickers, device)
+        sector_id = self._prepare_id(sector_id, batch_size, self.num_sectors, device)
+        if ticker_idx is None:
+            ticker_idx = torch.zeros(batch_size, device=device, dtype=torch.long)
+        if sector_id is None:
+            sector_id = torch.zeros(batch_size, device=device, dtype=torch.long)
+        ticker_h = self.ticker_embedding(ticker_idx)
+        sector_h = self.sector_embedding(sector_id)
+        return self.asset_context(torch.cat([ticker_h, sector_h], dim=-1)).to(dtype=dtype)
+
+    def _condition_latent(self, latent: torch.Tensor, asset_context: torch.Tensor | None) -> torch.Tensor:
+        if asset_context is None:
+            return latent
+        asset_context = asset_context.to(device=latent.device, dtype=latent.dtype)
+        gate = self.asset_latent_gate(torch.cat([latent, asset_context], dim=-1))
+        return latent + gate * asset_context
+
+    def _compose_action(
+        self,
+        latent: torch.Tensor,
+        action: torch.Tensor | None,
+        asset_context: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         learned_action = torch.tanh(self.action_net(latent))
+        asset_action = 0.0
+        if asset_context is not None:
+            asset_context = asset_context.to(device=latent.device, dtype=latent.dtype)
+            asset_action = torch.tanh(self.asset_action_proj(asset_context))
         if action is None:
-            return learned_action, learned_action
+            policy_action = torch.tanh(learned_action + asset_action)
+            return policy_action, learned_action
         action = action.to(latent.device, dtype=latent.dtype)
         if action.dim() == 3:
             action = action[:, 0]
         if action.size(-1) != learned_action.size(-1):
             action = _align_feature_dim(action.unsqueeze(1), learned_action.size(-1)).squeeze(1)
-        policy_action = torch.tanh(action + learned_action)
+        policy_action = torch.tanh(action + learned_action + asset_action)
         return policy_action, learned_action
 
     def imagine(self, prior_h, actions, horizon: int = 30):
@@ -466,17 +547,36 @@ class WorldModel(nn.Module):
         target_returns = _align_feature_dim(target_returns.unsqueeze(1), policy_action.size(-1)).squeeze(1)
         return -(torch.tanh(policy_action) * target_returns.detach()).mean()
 
-    def forward(self, price_seq, news_feat, macro_feat, edge_index, edge_weight, action, price_target=None):
+    def forward(
+        self,
+        price_seq,
+        news_feat,
+        macro_feat,
+        edge_index,
+        edge_weight,
+        action,
+        price_target=None,
+        ticker_idx: torch.Tensor | None = None,
+        sector_id: torch.Tensor | None = None,
+    ):
         q_mu, q_logvar, aux = self.encode(price_seq, news_feat, macro_feat, edge_index, edge_weight, return_aux=True)
         z = self.reparameterize(q_mu, q_logvar)
-        policy_action, learned_action = self._compose_action(z, action)
+        asset_context = self._make_asset_context(
+            ticker_idx,
+            sector_id,
+            batch_size=z.size(0),
+            device=z.device,
+            dtype=z.dtype,
+        )
+        z = self._condition_latent(z, asset_context)
+        policy_action, learned_action = self._compose_action(z, action, asset_context)
         prior_h, prior_stats = self.transition(prev_latent=z, action=policy_action)
         p_mu = prior_stats[..., : self.latent_dim]
         p_logvar = prior_stats[..., self.latent_dim:]
         kl = self.kl_divergence(q_mu, q_logvar, p_mu, p_logvar)
 
         imagined = self.imagine(z, policy_action.unsqueeze(1).expand(-1, 30, -1), horizon=30)
-        price_pred, return_pred, regime_logits = self.decoder(imagined, horizon=30)
+        price_pred, return_pred, regime_logits = self.decoder(imagined, horizon=30, asset_context=asset_context)
 
         loss = torch.tensor(0.0, device=z.device)
         if price_target is not None and price_target.numel() > 0:
@@ -497,6 +597,7 @@ class WorldModel(nn.Module):
             "learned_action": learned_action,
             "action_reg_loss": learned_action.pow(2).mean(),
             "action_policy_loss": self._action_policy_loss(policy_action, price_target),
+            "asset_context": asset_context,
             "temporal_token_ids": aux["temporal_token_ids"],
             "cross_token_ids": aux["cross_token_ids"],
             "temporal_perplexity": aux["temporal_perplexity"],

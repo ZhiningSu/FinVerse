@@ -5,12 +5,13 @@ import hashlib
 import io
 import json
 import math
+import os
 import time
 import uuid
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,9 @@ DEFAULT_DATA_LIVE_DIR = PROJECT_ROOT / "data" / "live"
 STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
 YAHOO_CHART_BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
 YAHOO_RSS_URL = "https://feeds.finance.yahoo.com/rss/2.0/headline"
+FINNHUB_COMPANY_NEWS_URL = "https://finnhub.io/api/v1/company-news"
+GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
+STOCKTWITS_STREAM_URL = "https://api.stocktwits.com/api/2/streams/symbol/{symbol}.json"
 HTTP_HEADERS = {"User-Agent": "FinVerse-Dashboard/0.1 (+https://github.com/ZhiningSu/FinVerse)"}
 POSITIVE_NEWS_TERMS = {
     "beat",
@@ -61,6 +65,44 @@ NEGATIVE_NEWS_TERMS = {
     "probe",
     "bearish",
     "cuts",
+}
+
+THEME_KEYWORDS = {
+    "ai": {"ai", "artificial", "intelligence", "genai", "gpu", "accelerator", "datacenter", "data center"},
+    "semiconductor": {"semiconductor", "chip", "chips", "foundry", "hbm", "dram", "nand", "memory", "wafer"},
+    "cloud": {"cloud", "software", "saas", "database", "infrastructure"},
+    "crypto": {"bitcoin", "crypto", "blockchain", "ethereum"},
+    "obesity_drugs": {"obesity", "glp-1", "weight-loss", "weight loss", "zepbound", "mounjaro"},
+    "energy": {"oil", "gas", "energy", "crude", "lng", "opec"},
+    "rates_financials": {"rate", "rates", "yield", "treasury", "fed", "bank", "lending"},
+    "defense": {"defense", "aerospace", "missile", "contract", "pentagon"},
+}
+
+THEME_TICKERS = {
+    "ai": {"NVDA", "AMD", "AVGO", "MSFT", "GOOGL", "META", "ORCL", "CRM", "XLK", "QQQ"},
+    "semiconductor": {"NVDA", "AMD", "AVGO", "INTC", "XLK", "QQQ"},
+    "cloud": {"MSFT", "ORCL", "CRM", "AMZN", "GOOGL"},
+    "crypto": {"MSTR", "COIN", "RIOT", "MARA"},
+    "obesity_drugs": {"LLY", "MRK", "ABBV", "PFE", "XLV"},
+    "energy": {"XOM", "CVX", "COP", "SLB", "EOG", "OXY", "XLE"},
+    "rates_financials": {"JPM", "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "C", "XLF"},
+    "defense": {"LMT", "RTX", "BA", "HON", "GE"},
+}
+
+NEWS_STOPWORDS = {
+    "the", "and", "for", "with", "from", "that", "this", "after", "before", "about",
+    "into", "over", "under", "stock", "stocks", "share", "shares", "market", "markets",
+    "company", "companies", "says", "said", "will", "can", "are", "was", "were", "its",
+}
+
+MODAL_WEIGHTS = {
+    "sector_macro": 0.23,
+    "discussion": 0.18,
+    "theme_heat": 0.12,
+    "price_momentum": 0.17,
+    "graph_corr": 0.12,
+    "historical_retrieval": 0.10,
+    "model_vq": 0.08,
 }
 
 
@@ -293,6 +335,143 @@ def fetch_yahoo_rss_sentiment(symbol: str) -> tuple[float, int, list[str]]:
         return 0.0, 0, []
 
 
+def _sentiment_from_titles(items: list[str]) -> tuple[float, int, list[str]]:
+    titles = [item.strip() for item in items if item and item.strip()]
+    if not titles:
+        return 0.0, 0, []
+    scores = [headline_sentiment(title) for title in titles]
+    return float(np.mean(scores)), len(titles), titles[:3]
+
+
+def parse_finnhub_company_news(payload: Any) -> tuple[float, int, list[str]]:
+    if not isinstance(payload, list):
+        return 0.0, 0, []
+    titles = [str(item.get("headline") or "") for item in payload[:20] if isinstance(item, dict)]
+    return _sentiment_from_titles(titles)
+
+
+def fetch_finnhub_company_news(symbol: str) -> tuple[float, int, list[str]]:
+    token = os.environ.get("FINNHUB_API_KEY")
+    if not token:
+        return 0.0, 0, []
+    end = datetime.now(timezone.utc).date()
+    start = end - timedelta(days=14)
+    try:
+        resp = requests.get(
+            FINNHUB_COMPANY_NEWS_URL,
+            headers=HTTP_HEADERS,
+            params={"symbol": symbol.upper(), "from": start.isoformat(), "to": end.isoformat(), "token": token},
+            timeout=4,
+        )
+        if resp.status_code != 200:
+            return 0.0, 0, []
+        return parse_finnhub_company_news(resp.json())
+    except Exception:
+        return 0.0, 0, []
+
+
+def parse_gdelt_doc(payload: Any) -> tuple[float, int, list[str]]:
+    articles = payload.get("articles", []) if isinstance(payload, dict) else []
+    titles = [str(item.get("title") or "") for item in articles[:20] if isinstance(item, dict)]
+    return _sentiment_from_titles(titles)
+
+
+def fetch_gdelt_doc_signal(symbol: str, name: str) -> tuple[float, int, list[str]]:
+    query = f'("{symbol.upper()}" OR "{name}") sourcecountry:US'
+    try:
+        resp = requests.get(
+            GDELT_DOC_URL,
+            headers=HTTP_HEADERS,
+            params={
+                "query": query,
+                "mode": "artlist",
+                "format": "json",
+                "maxrecords": 20,
+                "timespan": "7d",
+            },
+            timeout=4,
+        )
+        if resp.status_code != 200:
+            return 0.0, 0, []
+        return parse_gdelt_doc(resp.json())
+    except Exception:
+        return 0.0, 0, []
+
+
+def parse_stocktwits_messages(payload: Any) -> tuple[float, int, list[str]]:
+    messages = payload.get("messages", []) if isinstance(payload, dict) else []
+    texts = [str(item.get("body") or "") for item in messages[:30] if isinstance(item, dict)]
+    return _sentiment_from_titles(texts)
+
+
+def fetch_stocktwits_signal(symbol: str) -> tuple[float, int, list[str]]:
+    try:
+        resp = requests.get(
+            STOCKTWITS_STREAM_URL.format(symbol=symbol.upper()),
+            headers=HTTP_HEADERS,
+            timeout=4,
+        )
+        if resp.status_code != 200:
+            return 0.0, 0, []
+        return parse_stocktwits_messages(resp.json())
+    except Exception:
+        return 0.0, 0, []
+
+
+def _news_keywords(texts: list[str], limit: int = 8) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    for text in texts:
+        for raw in text.lower().replace("/", " ").replace("-", " ").split():
+            token = raw.strip(".,:;!?()[]{}\"'#$")
+            if len(token) < 3 or token in NEWS_STOPWORDS:
+                continue
+            if token.isdigit():
+                continue
+            counts[token] = counts.get(token, 0) + 1
+    return [
+        {"keyword": word, "count": count}
+        for word, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    ]
+
+
+def _news_theme_profile(asset: dict[str, Any], texts: list[str]) -> tuple[float, list[dict[str, Any]]]:
+    joined = " ".join(texts + [asset.get("ticker", ""), asset.get("name", ""), asset.get("sector", "")]).lower()
+    ticker = asset.get("ticker", "").upper()
+    theme_counts: dict[str, int] = {}
+    for theme, terms in THEME_KEYWORDS.items():
+        count = sum(joined.count(term) for term in terms)
+        if ticker in THEME_TICKERS.get(theme, set()):
+            count += 2
+        if count > 0:
+            theme_counts[theme] = count
+    if not theme_counts:
+        return 0.0, []
+    total = sum(theme_counts.values())
+    theme_heat = _clip(math.log1p(total) / math.log1p(12.0), 0.0, 1.0)
+    themes = [
+        {"theme": theme, "count": count, "score": float(count / max(total, 1))}
+        for theme, count in sorted(theme_counts.items(), key=lambda item: (-item[1], item[0]))[:5]
+    ]
+    return theme_heat, themes
+
+
+def _news_hotness_score(asset_signal: dict[str, Any], discussion_score: float) -> float:
+    sentiment = float(asset_signal.get("sentiment", 0.0))
+    sentiment_norm = (sentiment + 1.0) / 2.0
+    source_diversity = float(asset_signal.get("source_diversity", 0.0))
+    theme_heat = float(asset_signal.get("theme_heat", 0.0))
+    heat = float(asset_signal.get("heat", 0.0))
+    return _clip(
+        0.32 * heat
+        + 0.24 * theme_heat
+        + 0.18 * discussion_score
+        + 0.14 * sentiment_norm
+        + 0.12 * source_diversity,
+        0.0,
+        1.0,
+    )
+
+
 def collect_news_signals(
     market: str,
     ranked_assets: list[dict[str, Any]],
@@ -343,6 +522,109 @@ def collect_news_signals(
             "source": "yahoo_finance_rss",
         }
         for sector, scores in per_sector.items()
+    }
+
+
+def collect_discussion_signals(
+    market: str,
+    asset_features: list[dict[str, Any]],
+    fetch_online: bool,
+) -> dict[str, Any]:
+    """Approximate asset/sector discussion heat from news/forum-style text counts."""
+    if market != "us":
+        return {"assets": {}, "sectors": {}}
+    yahoo_dir = PROJECT_ROOT / "data" / "raw" / "news" / "yahoo_rss"
+    finnhub_dir = PROJECT_ROOT / "data" / "raw" / "news" / "finnhub"
+    gdelt_dir = PROJECT_ROOT / "data" / "raw" / "news" / "gdelt"
+    stocktwits_dir = PROJECT_ROOT / "data" / "raw" / "news" / "stocktwits"
+    asset_counts: dict[str, int] = {}
+    asset_sentiments: dict[str, list[float]] = {}
+    asset_texts: dict[str, list[str]] = {}
+    sector_counts: dict[str, int] = {}
+    sector_sentiments: dict[str, list[float]] = {}
+    asset_sources: dict[str, set[str]] = {}
+    fetched_symbols: set[str] = set()
+
+    def add_signal(asset: dict[str, Any], sentiment: float, count: int, source: str, items: list[str] | None = None) -> None:
+        if count <= 0:
+            return
+        ticker = asset["ticker"]
+        sector = asset["sector"]
+        asset_counts[ticker] = asset_counts.get(ticker, 0) + count
+        asset_sentiments.setdefault(ticker, []).append(sentiment)
+        asset_texts.setdefault(ticker, []).extend((items or [])[:10])
+        asset_sources.setdefault(ticker, set()).add(source)
+        sector_counts[sector] = sector_counts.get(sector, 0) + count
+        sector_sentiments.setdefault(sector, []).append(sentiment)
+
+    def add_local_json(asset: dict[str, Any], path: Path, parser, source: str) -> None:
+        if not path.exists():
+            return
+        try:
+            sentiment, count, items = parser(json.loads(path.read_text(encoding="utf-8", errors="ignore")))
+            add_signal(asset, sentiment, count, source, items)
+            fetched_symbols.add(asset["ticker"])
+        except Exception:
+            return
+
+    for asset in asset_features:
+        symbol = asset["ticker"]
+        local_file = yahoo_dir / f"{symbol}.xml"
+        if local_file.exists():
+            sentiment, count, items = parse_yahoo_rss_sentiment(local_file.read_text(encoding="utf-8", errors="ignore"))
+            add_signal(asset, sentiment, count, "yahoo_rss", items)
+            fetched_symbols.add(symbol)
+        add_local_json(asset, finnhub_dir / f"{symbol}.json", parse_finnhub_company_news, "finnhub")
+        add_local_json(asset, gdelt_dir / f"{symbol}.json", parse_gdelt_doc, "gdelt")
+        add_local_json(asset, stocktwits_dir / f"{symbol}.json", parse_stocktwits_messages, "stocktwits")
+
+    if fetch_online:
+        pending = [asset for asset in asset_features[:60] if asset["ticker"] not in fetched_symbols]
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {}
+            for asset in pending:
+                futures[executor.submit(fetch_yahoo_rss_sentiment, asset["ticker"])] = (asset, "yahoo_rss")
+                futures[executor.submit(fetch_finnhub_company_news, asset["ticker"])] = (asset, "finnhub")
+                futures[executor.submit(fetch_gdelt_doc_signal, asset["ticker"], asset["name"])] = (asset, "gdelt")
+                futures[executor.submit(fetch_stocktwits_signal, asset["ticker"])] = (asset, "stocktwits")
+            for future in as_completed(futures):
+                asset, source = futures[future]
+                sentiment, count, items = future.result()
+                add_signal(asset, sentiment, count, source, items)
+
+    max_asset = max(asset_counts.values(), default=1)
+    max_sector = max(sector_counts.values(), default=1)
+    asset_by_ticker = {asset["ticker"]: asset for asset in asset_features}
+    sector_theme_heats: dict[str, list[float]] = {}
+    asset_payload: dict[str, dict[str, Any]] = {}
+    for ticker, count in asset_counts.items():
+        asset = asset_by_ticker.get(ticker, {"ticker": ticker, "name": ticker, "sector": "Unknown"})
+        texts = asset_texts.get(ticker, [])
+        theme_heat, themes = _news_theme_profile(asset, texts)
+        sector_theme_heats.setdefault(asset.get("sector", "Unknown"), []).append(theme_heat)
+        sources = sorted(asset_sources.get(ticker, set()))
+        asset_payload[ticker] = {
+            "count": count,
+            "heat": float(math.log1p(count) / math.log1p(max_asset)),
+            "sentiment": float(np.mean(asset_sentiments.get(ticker, [0.0]))),
+            "sources": sources,
+            "source_diversity": _clip(len(sources) / 4.0, 0.0, 1.0),
+            "keywords": _news_keywords(texts),
+            "themes": themes,
+            "theme_heat": theme_heat,
+            "sample_headlines": texts[:5],
+        }
+    return {
+        "assets": asset_payload,
+        "sectors": {
+            sector: {
+                "count": count,
+                "heat": float(math.log1p(count) / math.log1p(max_sector)),
+                "sentiment": float(np.mean(sector_sentiments.get(sector, [0.0]))),
+                "theme_heat": float(np.mean(sector_theme_heats.get(sector, [0.0]))),
+            }
+            for sector, count in sector_counts.items()
+        },
     }
 
 
@@ -545,6 +827,164 @@ def _history_returns(raw: dict[str, list[dict[str, Any]]], ticker: str, trade_da
     return np.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
 
+def _load_training_universe() -> tuple[dict[str, float], list[str]]:
+    stats_path = PROJECT_ROOT / "data" / "processed" / "real_90" / "stats.json"
+    if not stats_path.exists():
+        return {"mean": 0.0, "std": 1.0}, []
+    try:
+        payload = json.loads(stats_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"mean": 0.0, "std": 1.0}, []
+    return payload.get("price_stats", {"mean": 0.0, "std": 1.0}), list(payload.get("symbols", []))
+
+
+def _ticker_condition_maps(ticker_info: dict[str, dict[str, str]], symbols: list[str]) -> tuple[dict[str, int], dict[str, int]]:
+    ticker_to_idx = {symbol: idx for idx, symbol in enumerate(symbols)}
+    sectors = sorted({ticker_info.get(symbol, {}).get("sector", "Unknown") for symbol in symbols} | {"Unknown"})
+    sector_to_id = {sector: idx for idx, sector in enumerate(sectors)}
+    return ticker_to_idx, sector_to_id
+
+
+def _history_closes(raw: dict[str, list[dict[str, Any]]], ticker: str, trade_date: str, lookback: int = 30) -> np.ndarray | None:
+    rows = rows_until_date(raw.get(ticker, []), trade_date)
+    if len(rows) < lookback:
+        return None
+    closes = np.asarray([float(row["close"]) for row in rows[-lookback:]], dtype=np.float32)
+    if np.any(closes <= 0):
+        return None
+    return closes
+
+
+def _normalized_history_prices(
+    raw: dict[str, list[dict[str, Any]]],
+    ticker: str,
+    trade_date: str,
+    price_stats: dict[str, float],
+    lookback: int = 30,
+) -> np.ndarray | None:
+    closes = _history_closes(raw, ticker, trade_date, lookback=lookback)
+    if closes is None:
+        return None
+    mean = float(price_stats.get("mean", 0.0))
+    std = max(float(price_stats.get("std", 1.0)), 1e-8)
+    return ((closes - mean) / std).astype(np.float32)
+
+
+def _historical_state_retrieval(
+    asset: dict[str, Any],
+    raw: dict[str, list[dict[str, Any]]],
+    trade_date: str,
+    lookback: int = 30,
+    horizon: int = 30,
+    top_k: int = 3,
+) -> dict[str, Any]:
+    rows = rows_until_date(raw.get(asset["ticker"], []), trade_date)
+    if len(rows) < lookback + horizon + 2:
+        return {"signal": 0.5, "expected_return": 0.0, "mean_path": [], "cases": []}
+    closes = np.asarray([float(row["close"]) for row in rows], dtype=np.float32)
+    if np.any(closes <= 0):
+        return {"signal": 0.5, "expected_return": 0.0, "mean_path": [], "cases": []}
+    returns = closes[1:] / (closes[:-1] + 1e-8) - 1.0
+    returns = np.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0)
+    current = returns[-lookback:]
+    current_norm = float(np.linalg.norm(current))
+    if current_norm <= 1e-8:
+        return {"signal": 0.5, "expected_return": 0.0, "mean_path": [], "cases": []}
+
+    candidates = []
+    end_limit = len(closes) - horizon - 1
+    for end_idx in range(lookback, end_limit):
+        hist = returns[end_idx - lookback:end_idx]
+        if hist.shape[0] != lookback:
+            continue
+        hist_norm = float(np.linalg.norm(hist))
+        if hist_norm <= 1e-8:
+            continue
+        future = closes[end_idx + 1:end_idx + horizon + 1] / (closes[end_idx] + 1e-8) - 1.0
+        if future.shape[0] < horizon:
+            continue
+        cosine = float(np.dot(current, hist) / (current_norm * hist_norm + 1e-8))
+        vol_penalty = abs(float(current.std()) - float(hist.std())) * 2.0
+        momentum_penalty = abs(float(current.mean()) - float(hist.mean())) * 5.0
+        similarity = cosine - vol_penalty - momentum_penalty
+        candidates.append((similarity, end_idx, future.astype(np.float32)))
+
+    if not candidates:
+        return {"signal": 0.5, "expected_return": 0.0, "mean_path": [], "cases": []}
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    top = candidates[:top_k]
+    paths = np.stack([item[2] for item in top], axis=0)
+    mean_path = np.nan_to_num(paths.mean(axis=0), nan=0.0, posinf=0.0, neginf=0.0)
+    expected_return = float(np.clip(mean_path[-1], -0.3, 0.3))
+    return {
+        "signal": _clip(0.5 + expected_return * 4.0, 0.0, 1.0),
+        "expected_return": expected_return,
+        "mean_path": [float(np.clip(value, -0.3, 0.3)) for value in mean_path[:horizon]],
+        "cases": [
+            {
+                "date": rows[end_idx]["date"],
+                "similarity": float(similarity),
+                "future_return_30d": float(np.clip(path[-1], -0.3, 0.3)),
+            }
+            for similarity, end_idx, path in top
+        ],
+    }
+
+
+def _price_signal(asset: dict[str, Any]) -> float:
+    momentum = 0.55 * asset["return_20d"] + 0.30 * asset["return_5d"] + 0.15 * asset["return_1d"]
+    risk_penalty = 0.35 * asset["vol_20d"]
+    return _clip(0.5 + momentum * 5.0 - risk_penalty, 0.0, 1.0)
+
+
+def _discussion_signal(asset: dict[str, Any], discussion_signals: dict[str, Any]) -> float:
+    asset_sig = discussion_signals.get("assets", {}).get(asset["ticker"], {})
+    sector_sig = discussion_signals.get("sectors", {}).get(asset["sector"], {})
+    heat = 0.65 * float(asset_sig.get("heat", 0.0)) + 0.35 * float(sector_sig.get("heat", 0.0))
+    sentiment = 0.65 * float(asset_sig.get("sentiment", 0.0)) + 0.35 * float(sector_sig.get("sentiment", 0.0))
+    theme_heat = 0.70 * float(asset_sig.get("theme_heat", 0.0)) + 0.30 * float(sector_sig.get("theme_heat", 0.0))
+    source_diversity = float(asset_sig.get("source_diversity", 0.0))
+    return _clip(
+        0.10
+        + 0.55 * heat
+        + 0.15 * ((sentiment + 1.0) / 2.0)
+        + 0.15 * theme_heat
+        + 0.05 * source_diversity,
+        0.0,
+        1.0,
+    )
+
+
+def _correlation(a: np.ndarray | None, b: np.ndarray | None) -> float:
+    if a is None or b is None or len(a) < 3 or len(b) < 3:
+        return 0.0
+    if np.isclose(float(np.std(a)), 0.0) or np.isclose(float(np.std(b)), 0.0):
+        return 0.0
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def _graph_signal(
+    asset: dict[str, Any],
+    peer_tickers: list[str],
+    raw: dict[str, list[dict[str, Any]]],
+    trade_date: str,
+    asset_by_ticker: dict[str, dict[str, Any]],
+) -> float:
+    target_returns = _history_returns(raw, asset["ticker"], trade_date)
+    weighted = []
+    for ticker in peer_tickers[1:]:
+        peer = asset_by_ticker.get(ticker)
+        if peer is None:
+            continue
+        corr = max(_correlation(target_returns, _history_returns(raw, ticker, trade_date)), 0.0)
+        sector_bonus = 0.25 if peer.get("sector") == asset.get("sector") else 0.0
+        trend = _price_signal(peer)
+        weighted.append((corr + sector_bonus) * trend)
+    if not weighted:
+        return 0.5
+    return _clip(float(np.mean(weighted)), 0.0, 1.0)
+
+
 def _peer_tickers(asset: dict[str, Any], asset_features: list[dict[str, Any]], width: int = 6) -> list[str]:
     target = asset["ticker"]
     same_sector = [
@@ -566,18 +1006,36 @@ def _live_graph_sample(
     raw: dict[str, list[dict[str, Any]]],
     trade_date: str,
     market_state: dict[str, Any],
+    discussion_signals: dict[str, Any],
+    price_stats: dict[str, float] | None = None,
+    retrieval: dict[str, Any] | None = None,
     width: int = 6,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, float]]:
     tickers = _peer_tickers(asset, asset_features, width=width)
+    asset_by_ticker = {row["ticker"]: row for row in asset_features}
+    price_stats = price_stats or {"mean": 0.0, "std": 1.0}
+    retrieval = retrieval or {"signal": 0.5, "expected_return": 0.0}
     columns = []
     for ticker in tickers:
-        returns = _history_returns(raw, ticker, trade_date)
-        if returns is None:
-            returns = _history_returns(raw, asset["ticker"], trade_date)
-        if returns is None:
-            returns = np.zeros(30, dtype=np.float32)
-        columns.append(np.clip(returns, -0.25, 0.25))
+        series = _normalized_history_prices(raw, ticker, trade_date, price_stats)
+        if series is None:
+            series = _normalized_history_prices(raw, asset["ticker"], trade_date, price_stats)
+        if series is None:
+            series = np.zeros(30, dtype=np.float32)
+        columns.append(series)
     price_seq = np.stack(columns, axis=1).astype(np.float32)
+    price_score = _price_signal(asset)
+    sector_score = sector_macro_fit(asset["sector"], market_state)
+    discussion_score = _discussion_signal(asset, discussion_signals)
+    graph_score = _graph_signal(asset, tickers, raw, trade_date, asset_by_ticker)
+    retrieval_score = float(retrieval.get("signal", 0.5))
+    asset_discussion = discussion_signals.get("assets", {}).get(asset["ticker"], {})
+    sector_discussion = discussion_signals.get("sectors", {}).get(asset["sector"], {})
+    asset_sentiment = float(asset_discussion.get("sentiment", 0.0))
+    sector_sentiment = float(sector_discussion.get("sentiment", 0.0))
+    theme_score = 0.70 * float(asset_discussion.get("theme_heat", 0.0)) + 0.30 * float(sector_discussion.get("theme_heat", 0.0))
+    source_diversity = float(asset_discussion.get("source_diversity", 0.0))
+    hotness_score = _news_hotness_score(asset_discussion, discussion_score)
 
     macro_row = np.asarray(
         [
@@ -586,17 +1044,75 @@ def _live_graph_sample(
             market_state["regime_probs"]["bull"],
             market_state["regime_probs"]["sideway"],
             market_state["regime_probs"]["bear"],
-            asset["return_5d"],
-            asset["return_20d"],
-            asset["vol_20d"],
+            sector_score,
+            discussion_score,
+            graph_score,
         ],
         dtype=np.float32,
     )
     macro_feat = np.repeat(macro_row[None, :], 30, axis=0)
-    news_feat = np.zeros((30, 384), dtype=np.float32)
+    news_row = np.zeros(384, dtype=np.float32)
+    news_row[:22] = np.asarray(
+        [
+            discussion_score,
+            float(asset_discussion.get("heat", 0.0)),
+            float(sector_discussion.get("heat", 0.0)),
+            asset_sentiment,
+            sector_sentiment,
+            math.log1p(float(asset_discussion.get("count", 0))) / 5.0,
+            math.log1p(float(sector_discussion.get("count", 0))) / 6.0,
+            price_score,
+            sector_score,
+            graph_score,
+            market_state["regime_probs"]["bull"],
+            market_state["regime_probs"]["bear"],
+            retrieval_score,
+            float(retrieval.get("expected_return", 0.0)),
+            float(len(asset_discussion.get("sources", []))) / 3.0,
+            asset["return_20d"],
+            theme_score,
+            source_diversity,
+            hotness_score,
+            float(len(asset_discussion.get("keywords", []))) / 8.0,
+            float(len(asset_discussion.get("themes", []))) / 5.0,
+            float(asset_discussion.get("sentiment", 0.0)) - float(sector_discussion.get("sentiment", 0.0)),
+        ],
+        dtype=np.float32,
+    )
+    news_feat = np.repeat(news_row[None, :], 30, axis=0)
     edge_index = np.asarray([[0, 0, 0, 0, 0], [1, 2, 3, 4, 5]], dtype=np.int64)
-    edge_weight = np.ones(5, dtype=np.float32)
-    return price_seq, news_feat, macro_feat, edge_index, edge_weight
+    target_returns = _history_returns(raw, asset["ticker"], trade_date)
+    edge_weight = []
+    for ticker in tickers[1:]:
+        peer = asset_by_ticker.get(ticker, asset)
+        corr = max(_correlation(target_returns, _history_returns(raw, ticker, trade_date)), 0.0)
+        sector_bonus = 0.25 if peer.get("sector") == asset.get("sector") else 0.0
+        edge_weight.append(_clip(corr + sector_bonus, 0.05, 1.0))
+    edge_weight = np.asarray(edge_weight, dtype=np.float32)
+    action_vec = np.asarray(
+        [
+            sector_score,
+            discussion_score,
+            price_score,
+            graph_score,
+            retrieval_score,
+            market_state["regime_probs"]["bull"],
+            1.0 - min(asset["vol_20d"] / 0.05, 1.0),
+            asset["return_20d"],
+        ],
+        dtype=np.float32,
+    )
+    modal_signals = {
+        "sector_macro": sector_score,
+        "discussion": discussion_score,
+        "theme_heat": theme_score,
+        "news_source_diversity": source_diversity,
+        "news_hotness": hotness_score,
+        "price_momentum": price_score,
+        "graph_corr": graph_score,
+        "historical_retrieval": retrieval_score,
+    }
+    return price_seq, news_feat, macro_feat, edge_index, edge_weight, action_vec, modal_signals
 
 
 def _model_regime_probs(logits) -> dict[str, float]:
@@ -606,6 +1122,45 @@ def _model_regime_probs(logits) -> dict[str, float]:
         logits = logits[:, : min(5, logits.size(1)), :].mean(dim=1)
     probs = torch.softmax(logits[:, :3], dim=-1)[0].detach().cpu().numpy()
     return {"bear": float(probs[0]), "sideway": float(probs[1]), "bull": float(probs[2])}
+
+
+def _modal_weighted_return(model_return: float, modal_signals: dict[str, float]) -> tuple[float, dict[str, float]]:
+    model_signal = _clip(0.5 + model_return * 4.0, 0.0, 1.0)
+    signals = {**modal_signals, "model_vq": model_signal}
+    weighted_score = sum(MODAL_WEIGHTS[name] * signals.get(name, 0.5) for name in MODAL_WEIGHTS)
+    expected_return = _clip((weighted_score - 0.5) * 0.24, -0.20, 0.20)
+    signals["weighted_score"] = float(weighted_score)
+    signals["weighted_expected_return"] = float(expected_return)
+    return expected_return, signals
+
+
+def _reshape_rollout_path(
+    pred_path: np.ndarray,
+    expected_return: float,
+    modal_signals: dict[str, float],
+    retrieval: dict[str, Any] | None = None,
+) -> np.ndarray:
+    horizon = min(len(pred_path), 30)
+    ramp = np.arange(1, horizon + 1, dtype=np.float32) / float(horizon)
+    model_curve = np.clip(pred_path[:horizon], -0.30, 0.30)
+    target_curve = expected_return * ramp
+    curvature = (
+        0.030 * (modal_signals.get("discussion", 0.5) - 0.5) * np.sqrt(ramp)
+        + 0.025 * (modal_signals.get("sector_macro", 0.5) - 0.5) * ramp
+        + 0.015 * (modal_signals.get("graph_corr", 0.5) - 0.5) * ramp * ramp
+        + 0.020 * (modal_signals.get("historical_retrieval", 0.5) - 0.5) * np.sqrt(ramp)
+    )
+    retrieval_curve = None
+    if retrieval and retrieval.get("mean_path"):
+        retrieval_curve = np.asarray(retrieval["mean_path"][:horizon], dtype=np.float32)
+        if retrieval_curve.shape[0] == horizon:
+            retrieval_curve = np.clip(retrieval_curve, -0.30, 0.30)
+    if retrieval_curve is not None:
+        curve = 0.35 * model_curve + 0.45 * target_curve + 0.20 * retrieval_curve + curvature
+    else:
+        curve = 0.45 * model_curve + 0.55 * target_curve + curvature
+    curve[-1] = expected_return
+    return np.clip(curve, -0.30, 0.30)
 
 
 def _infer_checkpoint_num_tickers(checkpoint: Path, fallback: int) -> int:
@@ -656,19 +1211,44 @@ def run_finverse_checkpoint_inference(
     trade_date: str,
     market_state: dict[str, Any],
     config: LivePipelineConfig,
+    fetch_online: bool | None = None,
 ) -> list[dict[str, Any]]:
     import torch
 
     model, device, _ = _load_live_model(config, num_tickers=max(len(asset_features), 1))
+    discussion_signals = collect_discussion_signals(
+        config.market.lower(),
+        asset_features,
+        fetch_online=config.fetch_online if fetch_online is None else fetch_online,
+    )
     outputs = []
+    price_stats, symbols = _load_training_universe()
+    ticker_info = {
+        row["ticker"]: {"sector": row.get("sector", "Unknown")}
+        for row in asset_features
+    }
+    ticker_to_idx, sector_to_id = _ticker_condition_maps(ticker_info, symbols)
+    model_num_tickers = max(int(getattr(model, "num_tickers", len(symbols) or len(asset_features))), 1)
     for asset in asset_features:
-        price_seq, news_feat, macro_feat, edge_index, edge_weight = _live_graph_sample(
+        retrieval = _historical_state_retrieval(asset, raw, trade_date)
+        price_seq, news_feat, macro_feat, edge_index, edge_weight, action_vec, modal_signals = _live_graph_sample(
             asset,
             asset_features,
             raw,
             trade_date,
             market_state,
+            discussion_signals,
+            price_stats=price_stats,
+            retrieval=retrieval,
         )
+        ticker_idx = ticker_to_idx.get(asset["ticker"], stable_token_id(asset["ticker"], modulo=model_num_tickers))
+        sector_id = sector_to_id.get(asset["sector"], 0)
+        model_kwargs = {}
+        if getattr(model, "supports_asset_conditioning", False):
+            model_kwargs = {
+                "ticker_idx": torch.tensor([ticker_idx], dtype=torch.long, device=device),
+                "sector_id": torch.tensor([sector_id], dtype=torch.long, device=device),
+            }
         with torch.inference_mode():
             out = model(
                 torch.from_numpy(price_seq).unsqueeze(0).to(device),
@@ -676,13 +1256,17 @@ def run_finverse_checkpoint_inference(
                 torch.from_numpy(macro_feat).unsqueeze(0).to(device),
                 torch.from_numpy(edge_index).unsqueeze(0).to(device),
                 torch.from_numpy(edge_weight).unsqueeze(0).to(device),
-                torch.zeros(1, 8, device=device),
+                torch.from_numpy(action_vec).unsqueeze(0).to(device),
+                **model_kwargs,
             )
         pred_path = out["price_pred"][0].detach().cpu().float().numpy()
         pred_path = np.nan_to_num(pred_path, nan=0.0, posinf=0.0, neginf=0.0)
-        expected_return = _clip(float(pred_path[-1]), -0.20, 0.20)
-        predicted_volatility = float(max(np.std(pred_path), asset["vol_20d"]) * math.sqrt(30.0))
-        predicted_downside = float(max(0.0, -np.min(pred_path), predicted_volatility * 0.25 - expected_return * 0.15))
+        expected_return, modal_signals = _modal_weighted_return(float(pred_path[-1]), modal_signals)
+        asset_discussion = discussion_signals.get("assets", {}).get(asset["ticker"], {})
+        news_hotness_score = _news_hotness_score(asset_discussion, modal_signals.get("discussion", 0.5))
+        rollout_returns = _reshape_rollout_path(pred_path, expected_return, modal_signals, retrieval=retrieval)
+        predicted_volatility = float(max(np.std(rollout_returns), asset["vol_20d"]) * math.sqrt(30.0))
+        predicted_downside = float(max(0.0, -np.min(rollout_returns), predicted_volatility * 0.25 - expected_return * 0.15))
         regime_probs = _model_regime_probs(out["regime_logits"]) if "regime_logits" in out else market_state["regime_probs"]
         rollout_path = [
             {
@@ -690,7 +1274,7 @@ def run_finverse_checkpoint_inference(
                 "predicted_return": _clip(float(value), -0.30, 0.30),
                 "predicted_close": float(asset["close"] * (1.0 + _clip(float(value), -0.30, 0.30))),
             }
-            for idx, value in enumerate(pred_path[:30])
+            for idx, value in enumerate(rollout_returns)
         ]
         temporal_ids = out.get("temporal_token_ids")
         cross_ids = out.get("cross_token_ids")
@@ -706,6 +1290,23 @@ def run_finverse_checkpoint_inference(
                     "temporal_token": int(temporal_ids.detach().cpu().flatten()[0]) if temporal_ids is not None else stable_token_id(asset["ticker"], "temporal"),
                     "cross_asset_token": int(cross_ids.detach().cpu().flatten()[0]) if cross_ids is not None else stable_token_id(asset["sector"], "cross"),
                 },
+                "modal_signals": modal_signals,
+                "modal_weights": MODAL_WEIGHTS,
+                "historical_retrieval": retrieval,
+                "asset_condition": {
+                    "ticker_idx": int(ticker_idx),
+                    "sector_id": int(sector_id),
+                    "sector": asset["sector"],
+                },
+                "rollout_base_close": float(asset["close"]),
+                "rollout_base_date": trade_date,
+                "news_sources": asset_discussion.get("sources", []),
+                "news_source_diversity": asset_discussion.get("source_diversity", 0.0),
+                "news_keywords": asset_discussion.get("keywords", []),
+                "news_themes": asset_discussion.get("themes", []),
+                "news_theme_heat": asset_discussion.get("theme_heat", 0.0),
+                "news_hotness_score": news_hotness_score,
+                "sample_headlines": asset_discussion.get("sample_headlines", []),
                 "model_source": "finverse_checkpoint",
             }
         )
@@ -769,6 +1370,9 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
         defensive_sectors = {"Utilities", "Healthcare", "Consumer Staples", "Market ETF", "Sector ETF", "医药", "消费", "公用事业", "宽基ETF", "行业ETF"}
         sector_bonus = 0.04 if strategy["name"] in {"Defensive Quality", "Crisis Resilience"} and row["sector"] in defensive_sectors else 0.0
         type_bonus = 0.03 if strategy["name"] == "Crisis Resilience" and row["type"] == "etf" else 0.0
+        news_hotness = float(row.get("news_hotness_score", row.get("modal_signals", {}).get("news_hotness", 0.5)))
+        theme_heat = float(row.get("news_theme_heat", row.get("modal_signals", {}).get("theme_heat", 0.0)))
+        news_bonus = 0.05 * (news_hotness - 0.5) + 0.03 * theme_heat
         score = (
             weights["expected_return"] * expected_score[idx]
             + weights["low_risk"] * low_risk_score[idx]
@@ -777,6 +1381,7 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
             + weights["momentum"] * momentum_score[idx]
             + sector_bonus
             + type_bonus
+            + news_bonus
         )
         reasons = []
         if expected_score[idx] > 0.65:
@@ -789,6 +1394,8 @@ def rank_assets(model_outputs: list[dict[str, Any]], strategy: dict[str, Any], t
             reasons.append("sector matches the selected strategy")
         if type_bonus > 0:
             reasons.append("ETF exposure improves resilience")
+        if news_hotness > 0.62 or theme_heat > 0.45:
+            reasons.append("news/theme heat is elevated")
         ranked.append(
             {
                 **row,
@@ -996,7 +1603,7 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
         stages.append({"name": name, "status": status, "message": message, "duration_sec": 0.0})
 
     ticker_info = load_ticker_info(ticker_file)
-    snapshot = fetch_latest_data(config, raw_dir, data_live_dir, ticker_info, trade_date, force_fetch or config.fetch_online)
+    snapshot = fetch_latest_data(config, raw_dir, data_live_dir, ticker_info, trade_date, force_fetch)
     stage("fetch", "success", f"loaded {len(snapshot['assets'])} {market.upper()} assets")
 
     asset_features = compute_asset_features(snapshot["raw"], ticker_info, snapshot["trade_date"])
@@ -1015,6 +1622,7 @@ def run_live_pipeline(config: LivePipelineConfig | None = None, trade_date: str 
                 snapshot["trade_date"],
                 market_state,
                 config,
+                fetch_online=force_fetch or config.fetch_online,
             )
             stage("inference", "success", f"model checkpoint inference: {config.model_checkpoint}")
             inference_mode = "finverse_checkpoint"

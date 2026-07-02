@@ -47,10 +47,21 @@ jobs:
       - name: Generate daily market snapshots
         working-directory: .
         run: |
-          python scripts/run_live_pipeline.py --market us --top-k 20 --force-fetch || echo "::warning::US live snapshot refresh failed; using committed dashboard snapshot"
+          if python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("dashboard/public/data/us/latest.json")
+          payload = json.loads(path.read_text()) if path.exists() else {}
+          raise SystemExit(0 if payload.get("mode") == "finverse_checkpoint" else 1)
+          PY
+          then
+            echo "Using committed US finverse_checkpoint snapshot for dashboard"
+          else
+            python scripts/run_live_pipeline.py --market us --top-k 20 --force-fetch || echo "::warning::US live snapshot refresh failed; using committed dashboard snapshot"
+            if [ -f outputs/live/us/latest.json ]; then cp outputs/live/us/latest.json dashboard/public/data/us/latest.json; fi
+          fi
           python scripts/run_live_pipeline.py --market cn --top-k 20 --force-fetch || echo "::warning::CN live snapshot refresh failed; using committed dashboard snapshot"
           mkdir -p dashboard/public/data/us dashboard/public/data/cn
-          if [ -f outputs/live/us/latest.json ]; then cp outputs/live/us/latest.json dashboard/public/data/us/latest.json; fi
           if [ -f outputs/live/cn/latest.json ]; then cp outputs/live/cn/latest.json dashboard/public/data/cn/latest.json; fi
 
       - name: Setup Node

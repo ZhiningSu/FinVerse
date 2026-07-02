@@ -26,10 +26,11 @@ const COPY = {
   },
 };
 
-function points(values: number[], width: number, height: number) {
+type Domain = { min: number; max: number };
+
+function points(values: number[], width: number, height: number, domain: Domain) {
   if (!values.length) return "";
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const { min, max } = domain;
   const span = Math.max(max - min, 1e-6);
   return values
     .map((value, index) => {
@@ -38,6 +39,15 @@ function points(values: number[], width: number, height: number) {
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     })
     .join(" ");
+}
+
+function chartDomain(values: number[]): Domain {
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (!finite.length) return { min: 0, max: 1 };
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
+  const pad = Math.max((max - min) * 0.12, Math.abs(max) * 0.01, 1e-6);
+  return { min: min - pad, max: max + pad };
 }
 
 export function RolloutChart({ asset, language }: RolloutChartProps) {
@@ -51,9 +61,16 @@ export function RolloutChart({ asset, language }: RolloutChartProps) {
   }
 
   const history = asset.history_close.slice(-30).map((row) => row.close);
-  const rollout = asset.rollout_path.map((row) => row.predicted_close ?? 0);
+  const historyLast = history[history.length - 1] ?? asset.rollout_path[0]?.predicted_close ?? 0;
+  const predictedCloses = asset.rollout_path.map((row) => (
+    row.predicted_close ?? historyLast * (1 + row.predicted_return)
+  ));
+  const rollout = [historyLast, ...predictedCloses];
+  const domain = chartDomain([...history, ...rollout]);
   const width = 680;
   const height = 220;
+  const leftWidth = width * 0.5;
+  const rightWidth = width * 0.5;
 
   return (
     <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
@@ -84,11 +101,11 @@ export function RolloutChart({ asset, language }: RolloutChartProps) {
             stroke="rgba(148,163,184,0.16)"
           />
         ))}
-        <polyline points={points(history, width * 0.48, height)} fill="none" stroke="#94A3B8" strokeWidth="3" />
-        <g transform={`translate(${width * 0.52},0)`}>
-          <polyline points={points(rollout, width * 0.48, height)} fill="none" stroke="url(#rolloutGlow)" strokeWidth="3.5" />
+        <polyline points={points(history, leftWidth, height, domain)} fill="none" stroke="#94A3B8" strokeWidth="3" />
+        <g transform={`translate(${leftWidth},0)`}>
+          <polyline points={points(rollout, rightWidth, height, domain)} fill="none" stroke="url(#rolloutGlow)" strokeWidth="3.5" />
         </g>
-        <line x1={width * 0.5} x2={width * 0.5} y1="0" y2={height} stroke="rgba(255,255,255,0.22)" strokeDasharray="4 6" />
+        <line x1={leftWidth} x2={leftWidth} y1="0" y2={height} stroke="rgba(255,255,255,0.22)" strokeDasharray="4 6" />
       </svg>
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div className="rounded-2xl bg-slate-950/60 p-3 text-slate-300">{copy.predRet}: {(asset.features.expected_return_30d * 100).toFixed(2)}%</div>

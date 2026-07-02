@@ -216,7 +216,7 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   const [liveQuotes, setLiveQuotes] = useState<LiveQuotesResponse | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<AssetSortMode>("strategy");
+  const [sortMode, setSortMode] = useState<AssetSortMode>("model");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const copy = COPY[language];

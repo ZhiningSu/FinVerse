@@ -15,14 +15,13 @@ const COPY = {
   en: {
     eyebrow: "Top-20 Universe",
     title: "Live-adjusted Top 20 stock / fund picks",
-    helper: "Click ticker to inspect rollout details",
-    rank: "Rank",
-    modelRank: "Model",
-    strategyRank: "Strategy",
+    helper: "Click rank headers to reorder; click ticker to inspect rollout details",
+    modelRank: "Model Rank",
+    strategyRank: "Composite Rank",
     modelSort: "Model ranking",
-    strategySort: "Strategy ranking",
+    strategySort: "Composite ranking",
     modelScore: "Model Ret",
-    strategyScore: "Strategy Score",
+    strategyScore: "Composite Score",
     ticker: "Ticker",
     name: "Name",
     sector: "Sector",
@@ -40,14 +39,13 @@ const COPY = {
   zh: {
     eyebrow: "Top-20 资产池",
     title: "实时调整 Top 20 股票 / 基金推荐",
-    helper: "点击代码查看 rollout 详情",
-    rank: "排名",
+    helper: "点击排名表头切换排序；点击代码查看 rollout 详情",
     modelRank: "模型排名",
-    strategyRank: "策略排名",
+    strategyRank: "综合排名",
     modelSort: "模型排序",
-    strategySort: "策略排序",
+    strategySort: "综合排序",
     modelScore: "模型收益",
-    strategyScore: "策略评分",
+    strategyScore: "综合评分",
     ticker: "代码",
     name: "名称",
     sector: "行业",
@@ -133,6 +131,12 @@ function liveTone(value: number | null | undefined) {
   return "text-slate-300";
 }
 
+function rankHeaderClass(active: boolean) {
+  return `inline-flex items-center gap-2 rounded-full px-3 py-1.5 transition ${
+    active ? "bg-cyan-300/15 text-cyan-100" : "text-slate-400 hover:bg-white/10 hover:text-slate-100"
+  }`;
+}
+
 export function AssetTable({
   assets,
   onSelect,
@@ -142,11 +146,6 @@ export function AssetTable({
   onSortModeChange,
 }: AssetTableProps) {
   const copy = COPY[language];
-  const sortModes: Array<{ mode: AssetSortMode; label: string }> = [
-    { mode: "model", label: copy.modelSort },
-    { mode: "strategy", label: copy.strategySort },
-  ];
-  const peerRankLabel = sortMode === "model" ? copy.strategyRank : copy.modelRank;
   const scoreLabel = sortMode === "model" ? copy.modelScore : copy.strategyScore;
   return (
     <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/25">
@@ -156,17 +155,6 @@ export function AssetTable({
           <h2 className="mt-2 text-2xl font-semibold text-white">{copy.title}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-full border border-white/10 bg-slate-900/80 p-1 text-xs">
-            {sortModes.map((item) => (
-              <button
-                key={item.mode}
-                onClick={() => onSortModeChange(item.mode)}
-                className={`rounded-full px-4 py-2 transition ${sortMode === item.mode ? "bg-cyan-300/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
           <p className="text-sm text-slate-400">{copy.helper}</p>
         </div>
       </div>
@@ -174,8 +162,28 @@ export function AssetTable({
         <table className="min-w-[1120px] w-full border-collapse text-left text-sm">
           <thead className="bg-white/[0.06] text-xs uppercase tracking-[0.18em] text-slate-400">
             <tr>
-              <th className="px-4 py-3">{copy.rank}</th>
-              <th className="px-4 py-3">{peerRankLabel}</th>
+              <th className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => onSortModeChange("model")}
+                  className={rankHeaderClass(sortMode === "model")}
+                  aria-pressed={sortMode === "model"}
+                >
+                  {copy.modelRank}
+                  <span className="text-[0.65rem]">{sortMode === "model" ? "↓" : ""}</span>
+                </button>
+              </th>
+              <th className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => onSortModeChange("strategy")}
+                  className={rankHeaderClass(sortMode === "strategy")}
+                  aria-pressed={sortMode === "strategy"}
+                >
+                  {copy.strategyRank}
+                  <span className="text-[0.65rem]">{sortMode === "strategy" ? "↓" : ""}</span>
+                </button>
+              </th>
               <th className="px-4 py-3">{copy.ticker}</th>
               <th className="px-4 py-3">{copy.name}</th>
               <th className="px-4 py-3">{copy.sector}</th>
@@ -189,7 +197,8 @@ export function AssetTable({
           <tbody className="divide-y divide-white/10">
             {assets.map((asset) => {
               const selected = selectedTicker?.toUpperCase() === asset.ticker.toUpperCase();
-              const peerRank = sortMode === "model" ? asset.strategy_rank : asset.model_rank;
+              const modelRank = asset.model_rank ?? asset.rank;
+              const strategyRank = asset.strategy_rank ?? asset.rank;
               const scoreValue = sortMode === "model"
                 ? fmtPct(asset.model_sort_score ?? asset.expected_return_30d)
                 : (asset.strategy_sort_score ?? asset.score).toFixed(3);
@@ -198,8 +207,8 @@ export function AssetTable({
                   key={asset.ticker}
                   className={`${selected ? "bg-cyan-300/15 ring-1 ring-inset ring-cyan-300/30" : "bg-slate-950/20"} transition hover:bg-cyan-300/10`}
                 >
-                  <td className="px-4 py-4 text-slate-400">#{asset.rank}</td>
-                  <td className="px-4 py-4 text-slate-500">#{peerRank ?? asset.rank}</td>
+                  <td className={`px-4 py-4 ${sortMode === "model" ? "font-semibold text-cyan-100" : "text-slate-500"}`}>#{modelRank}</td>
+                  <td className={`px-4 py-4 ${sortMode === "strategy" ? "font-semibold text-cyan-100" : "text-slate-500"}`}>#{strategyRank}</td>
                   <td className="px-4 py-4">
                     <button
                       className="font-semibold text-cyan-200 underline-offset-4 hover:text-cyan-100 hover:underline"

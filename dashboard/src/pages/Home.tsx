@@ -133,11 +133,14 @@ function clip(value: number, low: number, high: number) {
 
 function hotThemeBoost(asset: AssetRecommendation, market: Market) {
   const text = `${asset.ticker} ${asset.name} ${asset.sector}`.toLowerCase();
+  const isTechSector = asset.sector === "Technology" || asset.sector === "科技" || asset.sector === "通信";
   const cnThemes = ["科技", "芯片", "半导体", "存储", "科创", "人工智能", "算力", "通信", "电子"];
-  const usThemes = ["technology", "semiconductor", "chip", "storage", "memory", "ai", "nvidia", "amd", "micron", "broadcom"];
-  const themes = market === "cn" ? cnThemes : usThemes;
-  if (themes.some((term) => text.includes(term))) return 0.09;
-  if (asset.sector === "Technology" || asset.sector === "科技") return 0.06;
+  const usThemes = ["technology", "semiconductor", "chip", "ai", "nvidia", "amd", "micron", "broadcom"];
+  const storageThemes = ["memory", "dram", "nand", "hbm"];
+  if (market === "cn" && cnThemes.some((term) => text.includes(term))) return 0.09;
+  if (market === "us" && usThemes.some((term) => text.includes(term))) return 0.09;
+  if (market === "us" && isTechSector && storageThemes.some((term) => text.includes(term))) return 0.09;
+  if (isTechSector) return 0.06;
   return 0;
 }
 
@@ -274,6 +277,13 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   const localizedRegime = displayRegime(market.regime, language);
   const explanations = asset?.explanation?.length ? asset.explanation.map((item) => displayReason(item, language)) : [copy.selectAsset];
   const displayedAssets = liveAdjustedAssets(recommendation, liveQuotes, marketId);
+  const displayedTickerSet = new Set(displayedAssets.map((item) => item.ticker.toUpperCase()));
+  const displayedLiveQuotes = liveQuotes
+    ? {
+      ...liveQuotes,
+      quotes: liveQuotes.quotes.filter((quote) => displayedTickerSet.has(quote.ticker.toUpperCase())),
+    }
+    : liveQuotes;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#08111F] text-slate-100">
@@ -353,7 +363,7 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
 
         <section className="mt-6">
           <LiveQuotePanel
-            data={liveQuotes}
+            data={displayedLiveQuotes}
             language={language}
             loading={quoteLoading}
             error={quoteError}

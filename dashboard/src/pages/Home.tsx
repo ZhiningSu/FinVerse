@@ -396,30 +396,28 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
           <IndustryPanel industries={recommendation.top_industries ?? []} language={language} />
         </section>
 
-        <section className="mt-6 grid items-start gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+        <section className="mt-6 space-y-6">
           <AssetTable
             assets={displayedAssets}
             onSelect={selectAsset}
             language={language}
             selectedTicker={asset?.ticker}
           />
-          <aside className="space-y-6 xl:sticky xl:top-6">
-            <RolloutChart asset={asset} language={language} />
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="h-5 w-5 text-teal-200" />
-                <h2 className="text-xl font-semibold text-white">{copy.riskTitle}</h2>
-              </div>
-              <div className="mt-5 space-y-3 text-sm text-slate-300">
-                {explanations.map((item) => (
-                  <p key={item} className="rounded-2xl bg-slate-950/60 p-3">{item}</p>
-                ))}
-                <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-amber-100">
-                  {copy.disclaimer}
-                </p>
-              </div>
+          <RolloutChart asset={asset} language={language} />
+          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-teal-200" />
+              <h2 className="text-xl font-semibold text-white">{copy.riskTitle}</h2>
             </div>
-          </aside>
+            <div className="mt-5 space-y-3 text-sm text-slate-300">
+              {explanations.map((item) => (
+                <p key={item} className="rounded-2xl bg-slate-950/60 p-3">{item}</p>
+              ))}
+              <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-amber-100">
+                {copy.disclaimer}
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="mt-6">

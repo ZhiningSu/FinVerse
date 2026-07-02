@@ -76,6 +76,34 @@ export type RecommendationResponse = {
   mode: string;
 };
 
+export type LiveQuote = {
+  market: Market;
+  ticker: string;
+  name: string;
+  price: number | null;
+  previous_close: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  volume: number | null;
+  amount?: number | null;
+  change: number | null;
+  change_percent: number | null;
+  currency: string;
+  market_state?: string | null;
+  quote_time?: string | null;
+  source: string;
+  is_realtime: boolean;
+};
+
+export type LiveQuotesResponse = {
+  market: Market;
+  as_of: string;
+  source: string;
+  is_realtime: boolean;
+  quotes: LiveQuote[];
+};
+
 export type PipelineStatus = {
   market: Market;
   language: Language;

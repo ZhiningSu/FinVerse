@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Activity, BrainCircuit, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { AssetTable } from "@/components/AssetTable";
 import { IndustryPanel } from "@/components/IndustryPanel";
+import { LiveQuotePanel } from "@/components/LiveQuotePanel";
 import { MetricCard } from "@/components/MetricCard";
 import { PipelinePanel } from "@/components/PipelinePanel";
 import { RegimeGauge } from "@/components/RegimeGauge";
 import { RolloutChart } from "@/components/RolloutChart";
-import { getAssetDetail, getLatestRecommendation, getPipelineStatus, runPipeline } from "@/lib/api";
-import type { AssetDetail, Language, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
+import { getAssetDetail, getLatestRecommendation, getLiveQuotes, getPipelineStatus, runPipeline } from "@/lib/api";
+import type { AssetDetail, Language, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse, Strategy } from "@/types";
 
 type HomeProps = {
   initialMarket?: Market;
@@ -127,6 +128,9 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
   const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
   const [pipeline, setPipeline] = useState<PipelineStatus | null>(null);
   const [asset, setAsset] = useState<AssetDetail | null>(null);
+  const [liveQuotes, setLiveQuotes] = useState<LiveQuotesResponse | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const copy = COPY[language];
@@ -165,11 +169,33 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
     setRecommendation(null);
     setPipeline(null);
     setAsset(null);
+    setLiveQuotes(null);
     refresh().catch((err) => {
       setError(err instanceof Error ? err.message : COPY.en.loadError);
       setLoading(false);
     });
   }, [refresh]);
+
+  useEffect(() => {
+    if (!recommendation) return;
+    let active = true;
+    const tickers = recommendation.top_assets.map((item) => item.ticker);
+    setQuoteLoading(true);
+    setQuoteError(null);
+    getLiveQuotes(marketId, tickers)
+      .then((response) => {
+        if (active) setLiveQuotes(response);
+      })
+      .catch((err) => {
+        if (active) setQuoteError(err instanceof Error ? err.message : "Unable to load live quotes.");
+      })
+      .finally(() => {
+        if (active) setQuoteLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [marketId, recommendation]);
 
   if (loading || !recommendation || !pipeline) {
     return <div className="min-h-screen bg-[#08111F] p-10 text-slate-300">{error ?? copy.loading}</div>;
@@ -255,6 +281,10 @@ export default function Home({ initialMarket = "us", initialLanguage = "en" }: H
           <MetricCard label={copy.strategy} value={localizedStrategy.name} detail={localizedStrategy.description} tone="amber" />
           <MetricCard label={copy.marketRegime} value={localizedRegime} detail={`${copy.return20d} ${(market.market_return_20d * 100).toFixed(2)}%`} tone="slate" />
           <MetricCard label={copy.topAssets} value={String(recommendation.top_assets.length)} detail={copy.rankedDetail} tone="cyan" />
+        </section>
+
+        <section className="mt-6">
+          <LiveQuotePanel data={liveQuotes} language={language} loading={quoteLoading} error={quoteError} />
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

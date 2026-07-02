@@ -1,4 +1,4 @@
-import type { AssetDetail, AssetRecommendation, Market, PipelineStatus, RecommendationResponse } from "@/types";
+import type { AssetDetail, AssetRecommendation, LiveQuote, LiveQuotesResponse, Market, PipelineStatus, RecommendationResponse } from "@/types";
 
 type StaticAsset = AssetRecommendation & Pick<AssetDetail, "history_close" | "rollout_path">;
 type StaticRecommendation = RecommendationResponse & {
@@ -23,8 +23,55 @@ function staticDataUrl(market: Market) {
   return `${import.meta.env.BASE_URL}data/${market}/latest.json`;
 }
 
+const liveApiBase = ((import.meta.env.VITE_LIVE_API_BASE as string | undefined) ?? "").replace(/\/$/, "");
+
+function liveApiUrl(path: string) {
+  return `${liveApiBase}${path}`;
+}
+
 async function getStaticLatest(market: Market) {
   return getJson<StaticRecommendation>(staticDataUrl(market));
+}
+
+function quoteFromAsset(asset: StaticAsset | AssetRecommendation, market: Market, asOf: string): LiveQuote {
+  const history = (asset as StaticAsset).history_close ?? [];
+  const previousClose = history.length >= 2 ? history[history.length - 2].close : null;
+  const change = previousClose ? asset.close - previousClose : null;
+  const changePercent = previousClose ? asset.close / previousClose - 1 : null;
+  return {
+    market,
+    ticker: asset.ticker,
+    name: asset.name,
+    price: asset.close,
+    previous_close: previousClose,
+    open: null,
+    high: null,
+    low: null,
+    volume: null,
+    change,
+    change_percent: changePercent,
+    currency: market === "cn" ? "CNY" : "USD",
+    market_state: "SNAPSHOT",
+    quote_time: asOf,
+    source: "daily_snapshot_fallback",
+    is_realtime: false,
+  };
+}
+
+async function getStaticLiveQuotes(market: Market, tickers: string[] = []): Promise<LiveQuotesResponse> {
+  const payload = await getStaticLatest(market);
+  const allAssets = [...(payload.all_assets ?? []), ...payload.top_assets];
+  const byTicker = new Map(allAssets.map((asset) => [asset.ticker.toUpperCase(), asset]));
+  const selected = tickers.length
+    ? tickers.map((ticker) => byTicker.get(ticker.toUpperCase())).filter((asset): asset is StaticAsset | AssetRecommendation => Boolean(asset))
+    : payload.top_assets;
+  return {
+    market,
+    as_of: payload.last_updated_at,
+    source: "daily_snapshot_fallback",
+    is_realtime: false,
+    quotes: selected.map((asset) => quoteFromAsset(asset, market, payload.last_updated_at)),
+  };
 }
 
 async function getWithStaticFallback<T>(apiPath: string, market: Market, fallback: () => Promise<T>) {
@@ -40,6 +87,21 @@ async function getWithStaticFallback<T>(apiPath: string, market: Market, fallbac
 
 export function getLatestRecommendation(market: Market) {
   return getWithStaticFallback<RecommendationResponse>("/api/recommendations/latest", market, async () => getStaticLatest(market));
+}
+
+export async function getLiveQuotes(market: Market, tickers: string[] = []) {
+  const params = new URLSearchParams({ market });
+  if (tickers.length) {
+    params.set("symbols", tickers.join(","));
+  }
+  if (import.meta.env.VITE_DATA_MODE === "static" && !liveApiBase) {
+    return getStaticLiveQuotes(market, tickers);
+  }
+  try {
+    return await getJson<LiveQuotesResponse>(liveApiUrl(`/api/quotes/live?${params.toString()}`));
+  } catch {
+    return getStaticLiveQuotes(market, tickers);
+  }
 }
 
 export function getPipelineStatus(market: Market) {

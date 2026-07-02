@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from live.pipeline import LivePipelineConfig, load_latest, run_live_pipeline
+from live.quotes import fetch_live_quotes, snapshot_quotes_from_recommendation
 
 
 app = FastAPI(
@@ -98,6 +99,42 @@ def latest_recommendations(market: str = "us") -> Dict[str, Any]:
         "top_industries": payload.get("top_industries", []),
         "top_assets": payload["top_assets"],
         "mode": payload["mode"],
+    }
+
+
+@app.get("/api/quotes/live")
+def live_quotes(market: str = "us", symbols: Optional[str] = None, top_k: int = 20) -> Dict[str, Any]:
+    clean_market = _clean_market(market)
+    payload = _latest(clean_market)
+    requested_symbols = [
+        symbol.strip().upper()
+        for symbol in (symbols or "").split(",")
+        if symbol.strip()
+    ]
+    if not requested_symbols:
+        requested_symbols = [asset["ticker"] for asset in payload.get("top_assets", [])[:top_k]]
+
+    response = fetch_live_quotes(clean_market, requested_symbols)
+    quotes = response.get("quotes", [])
+    seen = {quote.get("ticker", "").upper() for quote in quotes}
+    missing = [symbol for symbol in requested_symbols if symbol.upper() not in seen]
+
+    if missing:
+        fallback_quotes = snapshot_quotes_from_recommendation(clean_market, payload, missing)
+        quotes = [*quotes, *fallback_quotes]
+
+    source = response.get("source", "live_quote")
+    if response.get("is_realtime") and missing:
+        source = f"{source}+daily_snapshot_fallback"
+    elif not response.get("is_realtime"):
+        source = "daily_snapshot_fallback"
+
+    return {
+        "market": clean_market,
+        "as_of": response.get("as_of") or payload.get("last_updated_at"),
+        "source": source,
+        "is_realtime": bool(response.get("is_realtime")),
+        "quotes": quotes,
     }
 
 
